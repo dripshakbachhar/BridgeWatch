@@ -1,4 +1,6 @@
+
 import { useMemo, useState } from 'react';
+import BridgeSchematic from './components/engineering/BridgeSchematic';
 import { runSimulation } from './app/simulation';
 import { sensors } from './engineering/sensorConfig';
 import type { Scenario, Severity } from './engineering/types';
@@ -23,7 +25,7 @@ const severityLabel: Record<Severity, string> = {
 export default function App() {
   const [scenario, setScenario] = useState<Scenario>('structural-anomaly');
 
-    const result = useMemo(
+  const result = useMemo(
     () => runSimulation(scenario, { points: 100, seed: 7 }),
     [scenario]
   );
@@ -69,13 +71,7 @@ export default function App() {
             <span className="small-tag">Prototype</span>
           </div>
 
-          <div className="bridge-diagram" aria-label="Simplified bridge schematic">
-            <div className="deck-line" />
-            <div className={`pier ${highest.componentId === 'PIER-01' ? 'hot' : ''}`}><span>P1</span></div>
-            <div className={`pier ${highest.componentId === 'PIER-02' ? 'hot' : ''}`}><span>P2</span></div>
-            <div className={`pier ${highest.componentId === 'PIER-03' ? 'hot' : ''}`}><span>P3</span></div>
-            <div className="ground-line" />
-          </div>
+          <BridgeSchematic highestComponentId={highest.componentId} />
 
           <div className="diagram-caption">
             <span>● sensor-equipped component</span>
