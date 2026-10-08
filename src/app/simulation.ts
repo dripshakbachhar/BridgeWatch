@@ -3,11 +3,13 @@ import { generateMeasurements } from '../engineering/generator';
 import { components, sensors } from '../engineering/sensorConfig';
 import type {
   ComponentAssessment,
+  Measurement,
   Scenario,
   SensorAnalysis
 } from '../engineering/types';
 
 export interface SimulationResult {
+  measurements: Measurement[];
   analyses: SensorAnalysis[];
   assessments: ComponentAssessment[];
 }
@@ -23,14 +25,17 @@ export function runSimulation(
 ): SimulationResult {
   const points = options.points ?? 100;
   const seed = options.seed ?? 7;
+  const measurements: Measurement[] = [];
 
   const analyses = sensors.map((sensor) => {
-    const measurements = generateMeasurements(sensor, scenario, {
+    const sensorMeasurements = generateMeasurements(sensor, scenario, {
       points,
       seed
     });
 
-    return analyzeSensor(sensor, measurements);
+    measurements.push(...sensorMeasurements);
+
+    return analyzeSensor(sensor, sensorMeasurements);
   });
 
   const assessments = components
@@ -41,6 +46,7 @@ export function runSimulation(
     .sort((a, b) => b.score - a.score);
 
   return {
+    measurements,
     analyses,
     assessments
   };

@@ -12,6 +12,13 @@ export function classifyZScore(zScore: number): Severity {
   if (magnitude >= 1.5) return 'watch';
   return 'normal';
 }
+export function classifyMeasurement(
+  measurement: Measurement,
+  sensor: SensorConfig
+): Severity {
+
+  return classifyZScore(zScore);
+}
 
 function severityRank(severity: Severity): number {
   return { normal: 0, watch: 1, elevated: 2, high: 3 }[severity];
@@ -26,6 +33,7 @@ export function analyzeSensor(
   const latestValue = measurements[measurements.length - 1].value;
   const zScore = calculateZScore(latestValue, sensor.baselineMean, sensor.baselineStd);
   const severity = classifyZScore(zScore);
+
 
   const reason = severity === 'normal'
     ? 'Measurement remains close to baseline.'
