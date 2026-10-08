@@ -25,6 +25,7 @@ export interface SensorConfig {
   variationAmplitude: number;
   frequency: number;
   noiseStd: number;
+  temperatureCoefficient?: number;
 }
 
 export interface Measurement {
