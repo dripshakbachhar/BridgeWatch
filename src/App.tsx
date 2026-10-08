@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
-import { analyzeSensor, assessComponent } from './engineering/anomaly';
-import { generateMeasurements } from './engineering/generator';
-import { components, sensors } from './engineering/sensorConfig';
+import { runSimulation } from './app/simulation';
+import { sensors } from './engineering/sensorConfig';
 import type { Scenario, Severity } from './engineering/types';
 import './styles.css';
 
@@ -24,19 +23,10 @@ const severityLabel: Record<Severity, string> = {
 export default function App() {
   const [scenario, setScenario] = useState<Scenario>('structural-anomaly');
 
-  const result = useMemo(() => {
-    const analyses = sensors.map((sensor) => {
-      const measurements = generateMeasurements(sensor, scenario, { points: 100, seed: 7 });
-      return analyzeSensor(sensor, measurements);
-    });
-
-    const assessments = components
-      .filter((component) => sensors.some((sensor) => sensor.componentId === component.id))
-      .map((component) => assessComponent(analyses, component.id))
-      .sort((a, b) => b.score - a.score);
-
-    return { analyses, assessments };
-  }, [scenario]);
+    const result = useMemo(
+    () => runSimulation(scenario, { points: 100, seed: 7 }),
+    [scenario]
+  );
 
   const highest = result.assessments[0];
   const activeAnomalies = result.analyses.filter((analysis) => analysis.severity !== 'normal');
