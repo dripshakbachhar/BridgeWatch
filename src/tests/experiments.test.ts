@@ -1,12 +1,13 @@
-import { describe, expect, test } from 'vitest';
 import { sensors } from '../engineering/sensorConfig';
 import {
-  inspectSignalComponents,
-  runAnomalyRobustnessExperiment,
-  runNormalOperationExperiment,
-  runPersistenceTradeoffExperiment,
-  runStructuralAnomalyExperiment,
-  runTemporalPersistenceExperiment
+inspectSignalComponents,
+runAnomalyRobustnessExperiment,
+runEnvironmentalCompensationExperiment,
+runNormalOperationExperiment,
+runPersistenceTradeoffExperiment,
+runStructuralAnomalyExperiment,
+runTemporalPatternExperiment,
+runTemporalPersistenceExperiment
 } from '../engineering/experiments';
 
 describe('Experiment 01 — Normal Operation', () => {
@@ -286,9 +287,6 @@ describe('Experiment 05 — Persistence Trade-off', () => {
     }
   });
 });
-import {
-  runTemporalPatternExperiment,
-} from '../engineering/experiments';
 describe(
   'Experiment 06 — Temporal Anomaly Patterns',
   () => {
@@ -351,3 +349,43 @@ describe(
     );
   },
 );
+
+describe('Experiment 07 — Environmental Compensation', () => {
+  test('produces reproducible results across conditions and modes', () => {
+    const run = () =>
+      runEnvironmentalCompensationExperiment(
+        [2],
+        [4],
+        [0, 4],
+        [7],
+        10,
+        12
+      );
+
+    const first = run();
+    const second = run();
+
+    expect(first.experimentId).toBe('EXP-07');
+    expect(first).toEqual(second);
+    expect(first.results.length).toBeGreaterThan(0);
+
+    expect(
+      new Set(first.results.map((result) => result.condition))
+    ).toEqual(new Set(['normal', 'structural-anomaly']));
+
+    expect(
+      new Set(first.results.map((result) => result.compensationMode))
+    ).toEqual(
+      new Set(['without-compensation', 'with-compensation'])
+    );
+
+    for (const result of first.results) {
+      expect(Number.isFinite(result.latestRawZScore)).toBe(true);
+      expect(Number.isFinite(result.latestAdjustedZScore)).toBe(true);
+      expect(Number.isFinite(result.latestResidual)).toBe(true);
+
+      expect(result.detectionRate).toBeGreaterThanOrEqual(0);
+      expect(result.detectionRate).toBeLessThanOrEqual(1);
+    }
+  });
+});

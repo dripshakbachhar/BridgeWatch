@@ -1,3 +1,4 @@
+
 import type {
   Measurement,
   SensorConfig
@@ -18,6 +19,7 @@ export interface EnvironmentalCompensationResult {
 
 export interface EnvironmentalCompensationOptions {
   calibrationPoints?: number;
+  assumedTemperatureCoefficient?: number;
 }
 
 interface TemperaturePair {
@@ -27,14 +29,14 @@ interface TemperaturePair {
 
 function calculateMean(values: number[]): number {
   if (values.length === 0) {
-    throw new Error('Cannot calculate a mean from empty data.');
+    throw new Error(
+      'Cannot calculate a mean from empty data.'
+    );
   }
 
   return (
-    values.reduce(
-      (sum, value) => sum + value,
-      0
-    ) / values.length
+    values.reduce((sum, value) => sum + value, 0) /
+    values.length
   );
 }
 
@@ -51,10 +53,9 @@ function pairMeasurements(
 
   return measurements
     .map((measurement) => {
-      const temperature =
-        temperatureByTimestamp.get(
-          measurement.timestamp
-        );
+      const temperature = temperatureByTimestamp.get(
+        measurement.timestamp
+      );
 
       if (temperature === undefined) {
         return null;
@@ -66,9 +67,7 @@ function pairMeasurements(
       };
     })
     .filter(
-      (
-        pair
-      ): pair is TemperaturePair => pair !== null
+      (pair): pair is TemperaturePair => pair !== null
     );
 }
 
@@ -129,6 +128,22 @@ export function compensateForTemperature(
     );
   }
 
+  // Validate the latest reading before calibration validation.
+  const latestMeasurement =
+    measurements[measurements.length - 1];
+
+  const latestTemperatureMeasurement =
+    temperatureMeasurements.find(
+      (measurement) =>
+        measurement.timestamp === latestMeasurement.timestamp
+    );
+
+  if (!latestTemperatureMeasurement) {
+    throw new Error(
+      `No synchronized temperature measurement found for timestamp ${latestMeasurement.timestamp}.`
+    );
+  }
+
   const calibrationPoints =
     options.calibrationPoints ??
     Math.min(
@@ -137,7 +152,10 @@ export function compensateForTemperature(
       temperatureMeasurements.length
     );
 
-  if (calibrationPoints < 2) {
+  if (
+    !Number.isInteger(calibrationPoints) ||
+    calibrationPoints < 2
+  ) {
     throw new Error(
       'At least two calibration points are required.'
     );
@@ -146,8 +164,17 @@ export function compensateForTemperature(
   const calibrationMeasurements =
     measurements.slice(0, calibrationPoints);
 
+  const calibrationTimestamps = new Set(
+    calibrationMeasurements.map(
+      (measurement) => measurement.timestamp
+    )
+  );
+
   const calibrationTemperatures =
-    temperatureMeasurements.slice(0, calibrationPoints);
+    temperatureMeasurements.filter(
+      (measurement) =>
+        calibrationTimestamps.has(measurement.timestamp)
+    );
 
   const calibrationPairs = pairMeasurements(
     calibrationMeasurements,
@@ -160,46 +187,45 @@ export function compensateForTemperature(
     );
   }
 
+  const estimatedTemperatureCoefficient =
+    estimateTemperatureCoefficient(calibrationPairs);
+
+   if (
+    options.assumedTemperatureCoefficient !== undefined &&
+    !Number.isFinite(options.assumedTemperatureCoefficient)
+  ) {
+    throw new Error(
+      'Assumed temperature coefficient must be a finite number.'
+    );
+  }
+
   const temperatureCoefficient =
-    estimateTemperatureCoefficient(
-      calibrationPairs
-    );
+    options.assumedTemperatureCoefficient ??
+    estimatedTemperatureCoefficient;
+  const baselineTemperature = calculateMean(
+    calibrationPairs.map((pair) => pair.temperature)
+  );
 
-  const baselineTemperature =
-    calculateMean(
-      calibrationPairs.map(
-        (pair) => pair.temperature
-      )
-    );
-
-  const baselineValue =
-    calculateMean(
-      calibrationPairs.map(
-        (pair) => pair.value
-      )
-    );
-
-  const latestMeasurement =
-    measurements[measurements.length - 1];
-
-  const latestTemperatureMeasurement =
-    temperatureMeasurements[
-      temperatureMeasurements.length - 1
-    ];
+  const baselineValue = calculateMean(
+    calibrationPairs.map((pair) => pair.value)
+  );
 
   const expectedValue =
     baselineValue +
     temperatureCoefficient *
-      (latestTemperatureMeasurement.value -
-        baselineTemperature);
+      (
+        latestTemperatureMeasurement.value -
+        baselineTemperature
+      );
 
   const residual =
     latestMeasurement.value - expectedValue;
 
   const rawZScore =
-    (latestMeasurement.value -
-      sensor.baselineMean) /
-    sensor.baselineStd;
+    (
+      latestMeasurement.value -
+      sensor.baselineMean
+    ) / sensor.baselineStd;
 
   const adjustedZScore =
     residual / sensor.baselineStd;

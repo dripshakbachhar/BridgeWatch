@@ -1,5 +1,6 @@
 import { calculateMean, calculateStandardDeviation } from './baseline';
 import { calculateZScore } from './anomaly';
+import { compensateForTemperature } from './environment';
 import {
   generateMeasurements,
   type AnomalyStrength
@@ -149,6 +150,36 @@ export interface PersistenceTradeoffExperiment {
   evaluationPoints: number;
   results: PersistenceTradeoffResult[];
   summaries: PersistenceTradeoffSummary[];
+}
+
+export interface EnvironmentalCompensationExperimentResult {
+  sensorId: string;
+  componentId: string;
+  condition: 'normal' | 'structural-anomaly';
+  compensationMode: 'without-compensation' | 'with-compensation';
+  seed: number;
+  threshold: number;
+  trueTemperatureCoefficient: number;
+  assumedTemperatureCoefficient: number;
+  calibrationPoints: number;
+  evaluationPoints: number;
+  falseAlarms: number;
+  anomalyDetected: boolean;
+  detectionRate: number;
+  latestRawZScore: number;
+  latestAdjustedZScore: number;
+  latestResidual: number;
+}
+
+export interface EnvironmentalCompensationExperiment {
+  experimentId: 'EXP-07';
+  thresholds: number[];
+  trueTemperatureCoefficients: number[];
+  assumedTemperatureCoefficients: number[];
+  seeds: number[];
+  calibrationPoints: number;
+  evaluationPoints: number;
+  results: EnvironmentalCompensationExperimentResult[];
 }
 
 function severityThresholdExceeded(
@@ -1271,5 +1302,426 @@ export function runTemporalPatternExperiment(): {
     experiment: 'EXP-06',
     results,
     summaries
+  };
+}
+
+
+
+ // ============================================================
+ // EXP-07 — Environmental Compensation and Coefficient Mismatch
+ // ============================================================
+
+interface EnvironmentalSyntheticSeries {
+  measurements: Measurement[];
+  temperatures: Measurement[];
+  onsetIndex: number;
+}
+
+function createSeededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+
+  return () => {
+    state = (1664525 * state + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+function createEnvironmentalSyntheticSeries(
+  sensor: SensorConfig,
+  seed: number,
+  trueTemperatureCoefficient: number,
+  calibrationPoints: number,
+  evaluationPoints: number,
+  condition: 'normal' | 'structural-anomaly'
+): EnvironmentalSyntheticSeries {
+  const random = createSeededRandom(seed);
+  const totalPoints = calibrationPoints + evaluationPoints;
+
+  const onsetIndex =
+    calibrationPoints + Math.floor(evaluationPoints * 0.5);
+
+  const baselineTemperature = 20;
+
+  const anomalyOffset =
+    condition === 'structural-anomaly'
+      ? 2.5 * sensor.baselineStd
+      : 0;
+
+  const measurements: Measurement[] = [];
+  const temperatures: Measurement[] = [];
+
+  for (let index = 0; index < totalPoints; index += 1) {
+    // Simulated environmental temperature; not field data.
+    const temperatureValue =
+      baselineTemperature +
+      0.045 * index +
+      1.1 * Math.sin(index * 0.16) +
+      (random() - 0.5) * 0.15;
+
+    // Preserve the existing deterministic noise generation.
+    const centeredNoise =
+      random() + random() + random() - 1.5;
+
+    // Periodic variation matching the generator model.
+    const seasonal =
+      sensor.variationAmplitude *
+      Math.sin(2 * Math.PI * sensor.frequency * index);
+
+    // Apply the structural change only after its onset.
+    const structuralDeviation =
+      condition === 'structural-anomaly' &&
+      index >= onsetIndex
+        ? anomalyOffset
+        : 0;
+
+    const value =
+      sensor.baselineMean +
+      seasonal +
+      trueTemperatureCoefficient *
+        (temperatureValue - baselineTemperature) +
+      centeredNoise * sensor.noiseStd * 2 +
+      structuralDeviation;
+
+    measurements.push({
+      timestamp: index,
+      sensorId: sensor.id,
+      value
+    });
+
+    temperatures.push({
+      timestamp: index,
+      sensorId: 'TMP-SYNTH-01',
+      value: temperatureValue
+    });
+  }
+
+  return {
+    measurements,
+    temperatures,
+    onsetIndex
+  };
+}
+
+function evaluateEnvironmentalSeries(
+  sensor: SensorConfig,
+  series: EnvironmentalSyntheticSeries,
+  seed: number,
+  threshold: number,
+  trueTemperatureCoefficient: number,
+  assumedTemperatureCoefficient: number,
+  calibrationPoints: number,
+  evaluationPoints: number,
+  condition: 'normal' | 'structural-anomaly',
+  compensationMode:
+    | 'without-compensation'
+    | 'with-compensation'
+): EnvironmentalCompensationExperimentResult {
+  const calibrationMeasurements =
+    series.measurements.slice(0, calibrationPoints);
+
+  const calibrationValues = calibrationMeasurements.map(
+    (measurement) => measurement.value
+  );
+
+  const calibrationMean = calculateMean(calibrationValues);
+
+  // Scale used by the uncompensated baseline method.
+  const calibrationStd = Math.max(
+    calculateStandardDeviation(calibrationValues),
+    sensor.baselineStd * 0.1
+  );
+
+  /*
+   * Calculate the compensated scale from calibration data only.
+   *
+   * Use the assumed coefficient so that the calibration scale
+   * reflects the same coefficient assumption as evaluation.
+   * No evaluation or anomaly samples enter this calculation.
+   */
+  const calibrationTemperatures = series.temperatures.slice(
+    0,
+    calibrationPoints
+  );
+
+  const calibrationTemperatureMean = calculateMean(
+    calibrationTemperatures.map(
+      (measurement) => measurement.value
+    )
+  );
+
+  const calibrationResiduals = calibrationMeasurements.map(
+    (measurement, index) =>
+      measurement.value -
+      (
+        calibrationMean +
+        assumedTemperatureCoefficient *
+          (
+            calibrationTemperatures[index].value -
+            calibrationTemperatureMean
+          )
+      )
+  );
+
+  const compensatedCalibrationStd = Math.max(
+    calculateStandardDeviation(calibrationResiduals),
+    1e-9
+  );
+
+  const evaluationMeasurements =
+    series.measurements.slice(
+      calibrationPoints,
+      calibrationPoints + evaluationPoints
+    );
+
+  const scores: number[] = [];
+  const rawScores: number[] = [];
+  const residuals: number[] = [];
+
+  for (const measurement of evaluationMeasurements) {
+    const rawScore = calculateZScore(
+      measurement.value,
+      calibrationMean,
+      calibrationStd
+    );
+
+    rawScores.push(rawScore);
+
+    if (compensationMode === 'without-compensation') {
+      scores.push(rawScore);
+      residuals.push(measurement.value - calibrationMean);
+      continue;
+    }
+
+    /*
+     * Evaluate the current timestamp while keeping the original
+     * calibration window fixed. The compensation function receives
+     * measurements only up to the current evaluation point.
+     */
+    const measurementIndex = measurement.timestamp;
+
+    const measurementsThroughCurrentPoint =
+      series.measurements.slice(0, measurementIndex + 1);
+
+    const temperaturesThroughCurrentPoint =
+      series.temperatures.slice(0, measurementIndex + 1);
+
+    const compensated = compensateForTemperature(
+      {
+        ...sensor,
+        temperatureCoefficient: assumedTemperatureCoefficient
+      },
+      measurementsThroughCurrentPoint,
+      temperaturesThroughCurrentPoint,
+      {
+        calibrationPoints,
+        assumedTemperatureCoefficient
+      }
+    );
+
+    // Normalize against compensated calibration variability,
+    // not the original signal's standard deviation.
+    scores.push(
+      compensated.residual / compensatedCalibrationStd
+    );
+
+    residuals.push(compensated.residual);
+  }
+
+  const normalFalseAlarmCount = scores.filter(
+    (score) => Math.abs(score) >= threshold
+  ).length;
+
+  // Convert the absolute series onset into an evaluation index.
+  const localOnsetIndex = Math.max(
+    0,
+    series.onsetIndex - calibrationPoints
+  );
+
+  const postOnsetScores = scores.slice(localOnsetIndex);
+
+  const anomalyDetected =
+    condition === 'structural-anomaly' &&
+    postOnsetScores.some(
+      (score) => Math.abs(score) >= threshold
+    );
+
+  const detectionRate =
+    condition === 'structural-anomaly' &&
+    postOnsetScores.length > 0
+      ? postOnsetScores.filter(
+          (score) => Math.abs(score) >= threshold
+        ).length / postOnsetScores.length
+      : 0;
+
+  return {
+    sensorId: sensor.id,
+    componentId: sensor.componentId,
+    condition,
+    compensationMode,
+    seed,
+    threshold,
+    trueTemperatureCoefficient,
+    assumedTemperatureCoefficient,
+    calibrationPoints,
+    evaluationPoints,
+    falseAlarms:
+      condition === 'normal'
+        ? normalFalseAlarmCount
+        : scores
+            .slice(0, localOnsetIndex)
+            .filter((score) => Math.abs(score) >= threshold)
+            .length,
+    anomalyDetected,
+    detectionRate,
+    latestRawZScore:
+      rawScores.length > 0
+        ? rawScores[rawScores.length - 1]
+        : 0,
+    latestAdjustedZScore:
+      scores.length > 0
+        ? scores[scores.length - 1]
+        : 0,
+    latestResidual:
+      residuals.length > 0
+        ? residuals[residuals.length - 1]
+        : 0
+  };
+}
+
+export function runEnvironmentalCompensationExperiment(
+  thresholds = [1.5, 2, 3],
+  trueTemperatureCoefficients = [4, 8, 12],
+  assumedTemperatureCoefficients = [0, 4, 8, 12, 16],
+  seeds = [7, 17, 27],
+  calibrationPoints = 30,
+  evaluationPoints = 40
+): EnvironmentalCompensationExperiment {
+  if (
+    !Number.isInteger(calibrationPoints) ||
+    calibrationPoints < 2
+  ) {
+    throw new Error(
+      'EXP-07 requires at least two calibration points.'
+    );
+  }
+
+  if (
+    !Number.isInteger(evaluationPoints) ||
+    evaluationPoints < 1
+  ) {
+    throw new Error(
+      'EXP-07 requires at least one evaluation point.'
+    );
+  }
+
+  if (
+    thresholds.length === 0 ||
+    thresholds.some(
+      (threshold) =>
+        !Number.isFinite(threshold) || threshold <= 0
+    )
+  ) {
+    throw new Error(
+      'EXP-07 thresholds must be finite and greater than zero.'
+    );
+  }
+
+  if (
+    trueTemperatureCoefficients.some(
+      (coefficient) => !Number.isFinite(coefficient)
+    ) ||
+    assumedTemperatureCoefficients.some(
+      (coefficient) => !Number.isFinite(coefficient)
+    )
+  ) {
+    throw new Error(
+      'EXP-07 temperature coefficients must be finite numbers.'
+    );
+  }
+
+  const targetSensors = sensors.filter(
+    (sensor) => sensor.type === 'strain'
+  );
+
+  if (targetSensors.length === 0) {
+    throw new Error(
+      'EXP-07 requires at least one configured strain sensor.'
+    );
+  }
+
+  const results: EnvironmentalCompensationExperimentResult[] = [];
+
+  const conditions: Array<
+    'normal' | 'structural-anomaly'
+  > = ['normal', 'structural-anomaly'];
+
+  const modes: Array<
+    'without-compensation' | 'with-compensation'
+  > = ['without-compensation', 'with-compensation'];
+
+  for (const sensor of targetSensors) {
+    for (const seed of seeds) {
+      for (
+        const trueCoefficient of trueTemperatureCoefficients
+      ) {
+        for (
+          const assumedCoefficient of assumedTemperatureCoefficients
+        ) {
+          const coefficientSeries =
+            createEnvironmentalSyntheticSeries(
+              sensor,
+              seed,
+              trueCoefficient,
+              calibrationPoints,
+              evaluationPoints,
+              'normal'
+            );
+
+          for (const condition of conditions) {
+            const series =
+              condition === 'normal'
+                ? coefficientSeries
+                : createEnvironmentalSyntheticSeries(
+                    sensor,
+                    seed,
+                    trueCoefficient,
+                    calibrationPoints,
+                    evaluationPoints,
+                    condition
+                  );
+
+            for (const threshold of thresholds) {
+              for (const compensationMode of modes) {
+                results.push(
+                  evaluateEnvironmentalSeries(
+                    sensor,
+                    series,
+                    seed,
+                    threshold,
+                    trueCoefficient,
+                    assumedCoefficient,
+                    calibrationPoints,
+                    evaluationPoints,
+                    condition,
+                    compensationMode
+                  )
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    experimentId: 'EXP-07',
+    thresholds,
+    trueTemperatureCoefficients,
+    assumedTemperatureCoefficients,
+    seeds,
+    calibrationPoints,
+    evaluationPoints,
+    results
   };
 }
