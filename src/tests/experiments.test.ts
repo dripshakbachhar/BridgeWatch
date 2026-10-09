@@ -351,6 +351,51 @@ describe(
 );
 
 describe('Experiment 07 — Environmental Compensation', () => {
+test('rejects an empty true temperature coefficient list', () => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [],
+      [0, 4],
+      [7],
+      10,
+      12
+    )
+  ).toThrow(
+    'EXP-07 requires at least one true temperature coefficient.'
+  );
+});
+
+test('rejects an empty assumed temperature coefficient list', () => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [4],
+      [],
+      [7],
+      10,
+      12
+    )
+  ).toThrow(
+    'EXP-07 requires at least one assumed temperature coefficient.'
+  );
+});
+
+test('rejects an empty random seed list', () => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [4],
+      [0, 4],
+      [],
+      10,
+      12
+    )
+  ).toThrow(
+    'EXP-07 requires at least one random seed.'
+  );
+});
+
 test('produces reproducible results across conditions and modes', () => {
 const run = () =>
 runEnvironmentalCompensationExperiment(
