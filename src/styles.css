@@ -1119,3 +1119,79 @@ tbody tr:not(.selected-row) {
     grid-template-columns: 1fr;
   }
 }
+
+.environmental-panel {
+  margin-bottom: 18px;
+}
+
+.environmental-intro {
+  color: #99a8b7;
+  line-height: 1.65;
+  max-width: 850px;
+  margin: -6px 0 20px;
+}
+
+.environmental-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.environmental-card {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid #263846;
+  border-radius: 14px;
+  background: #09131c;
+}
+
+.environmental-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.environmental-card p {
+  color: #8193a3;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+
+.environmental-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.environmental-values span {
+  display: block;
+  color: #8193a3;
+  font-size: 0.76rem;
+  margin-bottom: 7px;
+}
+
+.environmental-values strong {
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.environmental-notes {
+  margin-top: 18px;
+  padding: 16px;
+  border-left: 3px solid #536f83;
+  background: #0a141d;
+  color: #b8c5d0;
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+
+.environmental-notes ul {
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+
+@media (max-width: 760px) {
+  .environmental-grid {
+    grid-template-columns: 1fr;
+  }
+}

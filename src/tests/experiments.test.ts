@@ -351,41 +351,242 @@ describe(
 );
 
 describe('Experiment 07 — Environmental Compensation', () => {
-  test('produces reproducible results across conditions and modes', () => {
-    const run = () =>
-      runEnvironmentalCompensationExperiment(
-        [2],
-        [4],
-        [0, 4],
-        [7],
-        10,
-        12
-      );
+test('produces reproducible results across conditions and modes', () => {
+const run = () =>
+runEnvironmentalCompensationExperiment(
+[2],
+[4],
+[0, 4],
+[7],
+10,
+12
+);
 
-    const first = run();
-    const second = run();
+const first = run();
+const second = run();
 
-    expect(first.experimentId).toBe('EXP-07');
-    expect(first).toEqual(second);
-    expect(first.results.length).toBeGreaterThan(0);
+expect(first.experimentId).toBe('EXP-07');
+expect(first).toEqual(second);
+expect(first.results.length).toBeGreaterThan(0);
 
-    expect(
-      new Set(first.results.map((result) => result.condition))
-    ).toEqual(new Set(['normal', 'structural-anomaly']));
+expect(
+  new Set(first.results.map((result) => result.condition))
+).toEqual(new Set(['normal', 'structural-anomaly']));
 
-    expect(
-      new Set(first.results.map((result) => result.compensationMode))
-    ).toEqual(
-      new Set(['without-compensation', 'with-compensation'])
+expect(
+  new Set(first.results.map((result) => result.compensationMode))
+).toEqual(
+  new Set(['without-compensation', 'with-compensation'])
+);
+
+for (const result of first.results) {
+  expect(Number.isFinite(result.latestRawZScore)).toBe(true);
+  expect(Number.isFinite(result.latestAdjustedZScore)).toBe(true);
+  expect(Number.isFinite(result.latestResidual)).toBe(true);
+
+  expect(result.detectionRate).toBeGreaterThanOrEqual(0);
+  expect(result.detectionRate).toBeLessThanOrEqual(1);
+}
+
+});
+
+test('reduces false alarms while retaining matched-condition anomaly detection', () => {
+const experiment = runEnvironmentalCompensationExperiment(
+[1.5, 2, 3],
+[4, 8, 12],
+[0, 4, 8, 12, 16],
+[7, 17, 27],
+30,
+40
+);
+
+const isMatched = (
+  result: (typeof experiment.results)[number]
+) =>
+  result.trueTemperatureCoefficient ===
+  result.assumedTemperatureCoefficient;
+
+const averageMetric = (
+  results: typeof experiment.results,
+  metric: 'falseAlarms' | 'detectionRate'
+) => {
+  expect(results.length).toBeGreaterThan(0);
+
+  return (
+    results.reduce((sum, result) => sum + result[metric], 0) /
+    results.length
+  );
+};
+
+const normalMatchedResults = experiment.results.filter(
+  (result) =>
+    result.condition === 'normal' && isMatched(result)
+);
+
+const normalWithoutCompensation = averageMetric(
+  normalMatchedResults.filter(
+    (result) =>
+      result.compensationMode === 'without-compensation'
+  ),
+  'falseAlarms'
+);
+
+const normalWithCompensation = averageMetric(
+  normalMatchedResults.filter(
+    (result) =>
+      result.compensationMode === 'with-compensation'
+  ),
+  'falseAlarms'
+);
+
+expect(normalWithCompensation).toBeLessThan(
+  normalWithoutCompensation
+);
+
+const anomalyMatchedResults = experiment.results.filter(
+  (result) =>
+    result.condition === 'structural-anomaly' &&
+    isMatched(result)
+);
+
+const anomalyWithoutCompensation = averageMetric(
+  anomalyMatchedResults.filter(
+    (result) =>
+      result.compensationMode === 'without-compensation'
+  ),
+  'detectionRate'
+);
+
+const anomalyWithCompensation = averageMetric(
+  anomalyMatchedResults.filter(
+    (result) =>
+      result.compensationMode === 'with-compensation'
+  ),
+  'detectionRate'
+);
+
+expect(anomalyWithCompensation).toBeGreaterThanOrEqual(0.9);
+
+expect(anomalyWithCompensation).toBeGreaterThanOrEqual(
+  anomalyWithoutCompensation - 0.1
+);
+
+});
+
+test('matches documented EXP-07 report aggregates', () => {
+const experiment = runEnvironmentalCompensationExperiment(
+[1.5, 2, 3],
+[4, 8, 12],
+[0, 4, 8, 12, 16],
+[7, 17, 27],
+30,
+40
+);
+
+const expectedCases = [
+  {
+    condition: 'normal',
+    matched: true,
+    mode: 'without-compensation',
+    count: 54,
+    falseAlarms: 6.24,
+    detectionRate: null
+  },
+  {
+    condition: 'normal',
+    matched: true,
+    mode: 'with-compensation',
+    count: 54,
+    falseAlarms: 1.78,
+    detectionRate: null
+  },
+  {
+    condition: 'normal',
+    matched: false,
+    mode: 'without-compensation',
+    count: 216,
+    falseAlarms: 6.24,
+    detectionRate: null
+  },
+  {
+    condition: 'normal',
+    matched: false,
+    mode: 'with-compensation',
+    count: 216,
+    falseAlarms: 4.90,
+    detectionRate: null
+  },
+  {
+    condition: 'structural-anomaly',
+    matched: true,
+    mode: 'without-compensation',
+    count: 54,
+    falseAlarms: 2.57,
+    detectionRate: 0.9889
+  },
+  {
+    condition: 'structural-anomaly',
+    matched: true,
+    mode: 'with-compensation',
+    count: 54,
+    falseAlarms: 1.06,
+    detectionRate: 0.9361
+  },
+  {
+    condition: 'structural-anomaly',
+    matched: false,
+    mode: 'without-compensation',
+    count: 216,
+    falseAlarms: 2.57,
+    detectionRate: 0.9889
+  },
+  {
+    condition: 'structural-anomaly',
+    matched: false,
+    mode: 'with-compensation',
+    count: 216,
+    falseAlarms: 2.19,
+    detectionRate: 0.8412
+  }
+] as const;
+
+for (const expected of expectedCases) {
+  const selected = experiment.results.filter(
+    (result) =>
+      result.condition === expected.condition &&
+      result.compensationMode === expected.mode &&
+      (
+        result.trueTemperatureCoefficient ===
+        result.assumedTemperatureCoefficient
+      ) === expected.matched
+  );
+
+  expect(selected).toHaveLength(expected.count);
+
+  const averageFalseAlarms =
+    selected.reduce(
+      (sum, result) => sum + result.falseAlarms,
+      0
+    ) / selected.length;
+
+  expect(averageFalseAlarms).toBeCloseTo(
+    expected.falseAlarms,
+    2
+  );
+
+  if (expected.detectionRate !== null) {
+    const averageDetectionRate =
+      selected.reduce(
+        (sum, result) => sum + result.detectionRate,
+        0
+      ) / selected.length;
+
+    expect(averageDetectionRate).toBeCloseTo(
+      expected.detectionRate,
+      4
     );
+  }
+}
 
-    for (const result of first.results) {
-      expect(Number.isFinite(result.latestRawZScore)).toBe(true);
-      expect(Number.isFinite(result.latestAdjustedZScore)).toBe(true);
-      expect(Number.isFinite(result.latestResidual)).toBe(true);
-
-      expect(result.detectionRate).toBeGreaterThanOrEqual(0);
-      expect(result.detectionRate).toBeLessThanOrEqual(1);
-    }
-  });
+});
 });

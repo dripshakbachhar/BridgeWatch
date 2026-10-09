@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { analyzeCrossSensorEvidence } from '../engineering/correlation';
 import type { SensorAnalysis } from '../engineering/types';
 
@@ -24,10 +24,7 @@ describe('analyzeCrossSensorEvidence', () => {
       analysis('TLT-01', 2.7, 'elevated')
     ];
 
-    const result = analyzeCrossSensorEvidence(
-      analyses,
-      'PIER-02'
-    );
+    const result = analyzeCrossSensorEvidence(analyses, 'PIER-02');
 
     expect(result.sensorCount).toBe(2);
     expect(result.abnormalSensorCount).toBe(2);
@@ -42,10 +39,7 @@ describe('analyzeCrossSensorEvidence', () => {
       analysis('TLT-01', 0.4, 'normal')
     ];
 
-    const result = analyzeCrossSensorEvidence(
-      analyses,
-      'PIER-02'
-    );
+    const result = analyzeCrossSensorEvidence(analyses, 'PIER-02');
 
     expect(result.sensorCount).toBe(2);
     expect(result.abnormalSensorCount).toBe(1);
@@ -60,21 +54,22 @@ describe('analyzeCrossSensorEvidence', () => {
       }
     ];
 
-    const result = analyzeCrossSensorEvidence(
-      analyses,
-      'DECK-01'
-    );
+    const result = analyzeCrossSensorEvidence(analyses, 'DECK-01');
 
     expect(result.sensorCount).toBe(1);
     expect(result.abnormalSensorCount).toBe(1);
     expect(result.corroborated).toBe(false);
   });
 
-  it('rejects an unknown component', () => {
-    expect(() =>
-      analyzeCrossSensorEvidence([], 'PIER-99')
-    ).toThrow(
-      'No sensor analyses found for PIER-99.'
-    );
+  it('returns empty evidence when no sensor analyses exist', () => {
+    const result = analyzeCrossSensorEvidence([], 'PIER-99');
+
+    expect(result.componentId).toBe('PIER-99');
+    expect(result.available).toBe(false);
+    expect(result.sensorCount).toBe(0);
+    expect(result.abnormalSensorCount).toBe(0);
+    expect(result.corroborated).toBe(false);
+    expect(result.strongestSeverity).toBe('normal');
+    expect(result.averageAbsoluteZScore).toBe(0);
   });
 });

@@ -1,3 +1,4 @@
+
 import type {
   SensorAnalysis,
   Severity
@@ -5,6 +6,7 @@ import type {
 
 export interface CrossSensorEvidence {
   componentId: string;
+  available: boolean;
   sensorCount: number;
   abnormalSensorCount: number;
   corroborated: boolean;
@@ -28,9 +30,15 @@ export function analyzeCrossSensorEvidence(
   );
 
   if (componentAnalyses.length === 0) {
-    throw new Error(
-      `No sensor analyses found for ${componentId}.`
-    );
+    return {
+      componentId,
+      available: false,
+      sensorCount: 0,
+      abnormalSensorCount: 0,
+      corroborated: false,
+      strongestSeverity: 'normal',
+      averageAbsoluteZScore: 0
+    };
   }
 
   const abnormalAnalyses = componentAnalyses.filter(
@@ -54,6 +62,7 @@ export function analyzeCrossSensorEvidence(
 
   return {
     componentId,
+    available: true,
     sensorCount: componentAnalyses.length,
     abnormalSensorCount: abnormalAnalyses.length,
     corroborated:
