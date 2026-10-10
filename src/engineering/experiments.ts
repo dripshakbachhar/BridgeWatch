@@ -1644,6 +1644,12 @@ export function runEnvironmentalCompensationExperiment(
     );
   }
 
+  if (seeds.some((seed) => !Number.isInteger(seed))) {
+    throw new Error(
+      'EXP-07 random seeds must be finite integers.'
+    );
+  }
+
   if (
     trueTemperatureCoefficients.some(
       (coefficient) => !Number.isFinite(coefficient)
