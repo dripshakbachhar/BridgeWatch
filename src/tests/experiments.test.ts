@@ -400,7 +400,10 @@ test.each([
   Number.NaN,
   Number.POSITIVE_INFINITY,
   Number.NEGATIVE_INFINITY,
-  1.5
+  1.5,
+  -1,
+  4294967296,
+  Number.MAX_SAFE_INTEGER
 ])('rejects invalid random seed %s', (seed) => {
   expect(() =>
     runEnvironmentalCompensationExperiment(
@@ -412,7 +415,7 @@ test.each([
       12
     )
   ).toThrow(
-    'EXP-07 random seeds must be finite integers.'
+    'EXP-07 random seeds must be unsigned 32-bit integers (0 through 4294967295).'
   );
 });
 
