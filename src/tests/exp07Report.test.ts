@@ -40,9 +40,9 @@ describe('EXP-07 CSV report export', () => {
     );
 
     expect(report).toEqual(repeated);
-    expect(report['main-summary.csv'].split('\r\n')).toHaveLength(11);
-    expect(report['severity-summary.csv'].split('\r\n')).toHaveLength(11);
-    expect(report['persistence-summary.csv'].split('\r\n')).toHaveLength(9);
+    expect(report['main-summary.csv'].split('\r\n')).toHaveLength(10);
+    expect(report['severity-summary.csv'].split('\r\n')).toHaveLength(12);
+    expect(report['persistence-summary.csv'].split('\r\n')).toHaveLength(10);
     expect(report['metadata.csv']).toContain('calibration_points_per_case,30');
     expect(report['metadata.csv']).toContain('evaluation_points_per_case,40');
     expect(report['metadata.csv']).toContain('generated_at,');
