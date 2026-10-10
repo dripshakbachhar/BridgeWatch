@@ -314,3 +314,17 @@ The source-level review found the documented default denominators, case-level cr
 
 No detector behavior change is made as part of this audit. The next scientifically meaningful step is independent evaluation of the synthetic assumptions and then, if suitable data can be obtained, a separately specified test on real sensor data with documented train/calibration and evaluation separation, justified thresholds, ground truth where available, and uncertainty reporting. Until then, EXP-07 is a reproducible synthetic sensitivity study—not field validation.
 
+## 11. Multi-seed robustness and descriptive variability
+
+The supplementary robustness command repeats the full default coefficient/threshold grid with ten additional deterministic seeds (101 through 110) for both the default non-zero step severity (2.5) and a zero-severity negative control. The baseline configuration remains unchanged; this is an additional sensitivity run, not a replacement for the published/default three-seed aggregate tables.
+
+Run from the repository root:
+
+```powershell
+npm ci
+npm run robustness:exp07
+```
+
+The command writes `reports/exp07/seed-robustness.csv`. It includes per-seed rows for normal operation, the injected-step scenario, and the negative control, each separated by matched/mismatched coefficients and compensation mode. It then appends across-seed summary rows reporting the mean, sample standard deviation, minimum, and maximum of each available metric. False-alarm denominators are full evaluation samples for normal and negative-control scenarios and pre-onset samples for non-zero injected steps. Case crossing and pointwise post-onset rates remain distinct. The negative-control crossing metric is the rate of configurations with a threshold crossing after the nominal midpoint, despite no injected step.
+
+The ten seed values are a prespecified deterministic extension for checking sensitivity to the random stream; they are not an independently sampled set of bridges. Summary statistics are descriptive across seed-level aggregates. **The sample standard deviation and range are not confidence intervals**, and the many coefficient/threshold/sensor configurations within a seed are not independent replicates. Results remain conditional on the synthetic generator and should be used to describe sensitivity, not field false-alarm probabilities or real-bridge detection performance.
