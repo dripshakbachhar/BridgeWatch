@@ -213,23 +213,49 @@ The results suggest that coefficient accuracy matters in this simulated setup. C
 
 ## 8. Reproducibility
 
-The experiment is implemented in `src/engineering/experiments.ts` as EXP-07. Its tests are in `src/tests/experiments.test.ts`.
-
-Run the test suite from the repository root:
+The experiment is implemented in `src/engineering/experiments.ts`; the deterministic aggregate regression checks are in `src/tests/experiments.test.ts`. Run these commands from the repository root in PowerShell on a clean checkout:
 
 ```powershell
-pnpm.cmd test
+npm ci
+npm test -- src/tests/experiments.test.ts
+npm run build
 ```
 
-Run the TypeScript and production build checks:
+The targeted test command executes the experiment tests, including assertions against the documented severity-sweep, persistence, and zero-severity negative-control aggregates. The build command checks TypeScript and creates the production build. Passing these checks confirms reproducibility against this repository version; it does not independently validate the synthetic model or field performance. The test suite asserts the reported aggregates rather than exporting a standalone CSV or publication table.
 
-```powershell
-pnpm.cmd build
-```
+### 8.1 Configuration used for the documented aggregate tables
 
-The broader diagnostic configuration used thresholds `[1.5, 2, 3]`, true coefficients `[4, 8, 12]`, assumed coefficients `[0, 4, 8, 12, 16]`, seeds `[7, 17, 27]`, calibration length `30`, and evaluation length `40`.
+| Parameter | Value |
+|---|---|
+| Detection thresholds | `[1.5, 2, 3]` |
+| True temperature coefficients | `[4, 8, 12]` |
+| Assumed compensation coefficients | `[0, 4, 8, 12, 16]` |
+| Seeds | `[7, 17, 27]` |
+| Calibration samples | `30` |
+| Evaluation samples | `40` |
+| Default normalization strategy | `pipeline-default` |
+| Default anomaly severity multiplier | `2.5` |
+| Severity sweep | `[0, 0.5, 1, 1.5, 2.5]` |
+| Persistence windows | `[1, 2, 3, 5]` |
 
-The seed list must contain at least one value. Each seed must be an unsigned 32-bit integer from `0` through `4294967295`, inclusive. Fractional, negative, out-of-range, and non-finite values such as `NaN` or `Infinity` are rejected. This matches the generator's 32-bit seed handling. Reusing the same seed and configuration produces reproducible synthetic results.
+The severity table contains 270 scored configurations per severity and compensation mode (2 strain sensors × 3 seeds × 3 true coefficients × 5 assumed coefficients × 3 thresholds). The non-zero-severity persistence table pools four severities, giving 1,080 configurations per compensation mode and persistence window. These configurations share deterministic inputs and are not independent physical trials.
+
+### 8.2 Fields and aggregation rules
+
+The raw experiment result includes the sensor/component identifiers, condition, compensation mode, seed, threshold, true and assumed temperature coefficients, calibration/evaluation lengths, normalization strategy, severity multiplier, and the following score fields:
+
+- `falseAlarms`: count of threshold crossings in the full evaluation segment for normal and zero-severity negative-control cases; for non-zero injected anomalies, count crossings before onset only.
+- `detectionRate`: fraction of post-onset samples crossing the absolute z-score threshold; zero for normal-condition results.
+- `anomalyDetected` and `detectionDelay`: whether any post-onset crossing occurs and the first crossing's sample index relative to onset (`0` is the onset sample; `null` means no crossing).
+- `anomalyInjected` and `zeroSeverityFalsePositive`: distinguish an actually injected step from a crossing in the zero-severity negative control.
+- `persistenceMetrics`: one record per configured window, with qualifying false-alarm episode count, post-onset detection status, and delay measured when the final required consecutive sample arrives.
+- `latestRawZScore`, `latestAdjustedZScore`, and `latestResidual`: final-sample diagnostics; `latestAdjustedZScore` uses the selected EXP-07 normalization scale, not the helper's `adjustedZScore` field.
+
+For the documented severity table, group the structural-anomaly results by severity multiplier and compensation mode. Compute pointwise post-onset rate as the mean of `detectionRate`; case-level crossing rate as the number of non-null `detectionDelay` values divided by the number of results; misses as total results minus detected results; and mean delay over detected results only. For severity zero, call the case-level crossing rate a negative-control false-positive rate and the delay a false-alert delay.
+
+For the persistence table, combine only the four non-zero severities, group by compensation mode and persistence window, and calculate detection rate, misses, and mean delay from `persistenceMetrics`. Mean normal false-alarm episodes are calculated separately from the normal-condition results in the baseline run, not from anomaly pre-onset segments. Round displayed percentages and means to two decimal places. The test assertions in `src/tests/experiments.test.ts` are the reference checks for the displayed aggregate values.
+
+The seed list must contain at least one value. Each seed must be an unsigned 32-bit integer from `0` through `4294967295`, inclusive. Fractional, negative, out-of-range, and non-finite values such as `NaN` or `Infinity` are rejected. Reusing the same seed and configuration produces reproducible synthetic results.
 
 ## 9. Conclusion
 
