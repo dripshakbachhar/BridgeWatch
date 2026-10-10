@@ -557,6 +557,58 @@ expect(anomalyWithCompensation).toBeGreaterThanOrEqual(
 
 });
 
+test('compares normalization scales on identical EXP-07 synthetic cases', () => {
+  const run = (
+    normalizationStrategy:
+      | 'raw-calibration-std'
+      | 'compensated-calibration-std'
+  ) =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [8],
+      [8],
+      [7],
+      10,
+      12,
+      normalizationStrategy
+    );
+
+  const rawScale = run('raw-calibration-std');
+  const residualScale = run('compensated-calibration-std');
+
+  expect(rawScale.normalizationStrategy).toBe('raw-calibration-std');
+  expect(residualScale.normalizationStrategy).toBe(
+    'compensated-calibration-std'
+  );
+  expect(rawScale.results).toHaveLength(residualScale.results.length);
+
+  const caseKey = (result: (typeof rawScale.results)[number]) =>
+    [
+      result.sensorId,
+      result.condition,
+      result.compensationMode,
+      result.seed,
+      result.threshold,
+      result.trueTemperatureCoefficient,
+      result.assumedTemperatureCoefficient,
+      result.calibrationPoints,
+      result.evaluationPoints
+    ].join('|');
+
+  expect(rawScale.results.map(caseKey)).toEqual(
+    residualScale.results.map(caseKey)
+  );
+
+  expect(
+    rawScale.results.some((result, index) =>
+      Math.abs(
+        result.latestAdjustedZScore -
+        residualScale.results[index].latestAdjustedZScore
+      ) > 1e-9
+    )
+  ).toBe(true);
+});
+
 test('matches documented EXP-07 report aggregates', () => {
 const experiment = runEnvironmentalCompensationExperiment(
 [1.5, 2, 3],
