@@ -366,6 +366,30 @@ describe(
 );
 
 describe('Experiment 07 — Environmental Compensation', () => {
+test.each([
+  'unsupported',
+  '',
+  'raw-calibration',
+])('rejects unsupported EXP-07 normalization strategy: %s', (strategy) => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12,
+      strategy as never
+    )
+  ).toThrow(
+    'EXP-07 normalization strategy must be pipeline-default, raw-calibration-std, or compensated-calibration-std.'
+  );
+
+  expect(() =>
+    runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7], 10, 12, [0, 1],
+      strategy as never
+    )
+  ).toThrow(
+    'EXP-07 normalization strategy must be pipeline-default, raw-calibration-std, or compensated-calibration-std.'
+  );
+});
+
 test('rejects an empty true temperature coefficient list', () => {
   expect(() =>
     runEnvironmentalCompensationExperiment(
