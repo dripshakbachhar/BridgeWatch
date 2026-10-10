@@ -351,6 +351,90 @@ describe(
 );
 
 describe('Experiment 07 — Environmental Compensation', () => {
+test('rejects an empty true temperature coefficient list', () => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [],
+      [0, 4],
+      [7],
+      10,
+      12
+    )
+  ).toThrow(
+    'EXP-07 requires at least one true temperature coefficient.'
+  );
+});
+
+test('rejects an empty assumed temperature coefficient list', () => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [4],
+      [],
+      [7],
+      10,
+      12
+    )
+  ).toThrow(
+    'EXP-07 requires at least one assumed temperature coefficient.'
+  );
+});
+
+test('rejects an empty random seed list', () => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [4],
+      [0, 4],
+      [],
+      10,
+      12
+    )
+  ).toThrow(
+    'EXP-07 requires at least one random seed.'
+  );
+});
+
+test.each([
+  Number.NaN,
+  Number.POSITIVE_INFINITY,
+  Number.NEGATIVE_INFINITY,
+  1.5,
+  -1,
+  4294967296,
+  Number.MAX_SAFE_INTEGER
+])('rejects invalid random seed %s', (seed) => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [4],
+      [0, 4],
+      [seed],
+      10,
+      12
+    )
+  ).toThrow(
+    'EXP-07 random seeds must be unsigned 32-bit integers (0 through 4294967295).'
+  );
+});
+
+test.each([0, 4294967295])(
+  'accepts valid unsigned 32-bit seed boundary %s',
+  (seed) => {
+    expect(() =>
+      runEnvironmentalCompensationExperiment(
+        [2],
+        [4],
+        [0, 4],
+        [seed],
+        10,
+        12
+      )
+    ).not.toThrow();
+  }
+);
+
 test('produces reproducible results across conditions and modes', () => {
 const run = () =>
 runEnvironmentalCompensationExperiment(

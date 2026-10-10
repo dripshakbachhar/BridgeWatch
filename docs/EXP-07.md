@@ -97,6 +97,8 @@ pnpm.cmd build
 
 The broader diagnostic configuration used thresholds `[1.5, 2, 3]`, true coefficients `[4, 8, 12]`, assumed coefficients `[0, 4, 8, 12, 16]`, seeds `[7, 17, 27]`, calibration length `30`, and evaluation length `40`.
 
+The seed list must contain at least one value. Each seed must be an unsigned 32-bit integer from `0` through `4294967295`, inclusive. Fractional, negative, out-of-range, and non-finite values such as `NaN` or `Infinity` are rejected. This matches the generator's 32-bit seed handling. Reusing the same seed and configuration produces reproducible synthetic results.
+
 ## 9. Conclusion
 
 In this synthetic experiment, temperature compensation reduced false alarms, with a larger reduction when the assumed temperature coefficient matched the generating coefficient. The simulation also showed lower anomaly detection rates after compensation, particularly in mismatched cases.

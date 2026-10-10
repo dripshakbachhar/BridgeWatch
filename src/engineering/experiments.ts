@@ -1626,6 +1626,37 @@ export function runEnvironmentalCompensationExperiment(
     );
   }
 
+  if (trueTemperatureCoefficients.length === 0) {
+    throw new Error(
+      'EXP-07 requires at least one true temperature coefficient.'
+    );
+  }
+
+  if (assumedTemperatureCoefficients.length === 0) {
+    throw new Error(
+      'EXP-07 requires at least one assumed temperature coefficient.'
+    );
+  }
+
+  if (seeds.length === 0) {
+    throw new Error(
+      'EXP-07 requires at least one random seed.'
+    );
+  }
+
+  if (
+    seeds.some(
+      (seed) =>
+        !Number.isInteger(seed) ||
+        seed < 0 ||
+        seed > 0xffff_ffff
+    )
+  ) {
+    throw new Error(
+      'EXP-07 random seeds must be unsigned 32-bit integers (0 through 4294967295).'
+    );
+  }
+
   if (
     trueTemperatureCoefficients.some(
       (coefficient) => !Number.isFinite(coefficient)
