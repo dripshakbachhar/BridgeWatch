@@ -1,3 +1,4 @@
+import { compensateForTemperature } from '../engineering/environment';
 import { sensors } from '../engineering/sensorConfig';
 import {
 inspectSignalComponents,
@@ -557,6 +558,184 @@ expect(anomalyWithCompensation).toBeGreaterThanOrEqual(
 
 });
 
+test('compares normalization scales on identical EXP-07 synthetic cases', () => {
+  const run = (
+    normalizationStrategy:
+      | 'raw-calibration-std'
+      | 'compensated-calibration-std'
+  ) =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [8],
+      [8],
+      [7],
+      10,
+      12,
+      normalizationStrategy
+    );
+
+  const rawScale = run('raw-calibration-std');
+  const residualScale = run('compensated-calibration-std');
+
+  expect(rawScale.normalizationStrategy).toBe('raw-calibration-std');
+  expect(residualScale.normalizationStrategy).toBe(
+    'compensated-calibration-std'
+  );
+  expect(rawScale.results).toHaveLength(residualScale.results.length);
+
+  const caseKey = (result: (typeof rawScale.results)[number]) =>
+    [
+      result.sensorId,
+      result.condition,
+      result.compensationMode,
+      result.seed,
+      result.threshold,
+      result.trueTemperatureCoefficient,
+      result.assumedTemperatureCoefficient,
+      result.calibrationPoints,
+      result.evaluationPoints
+    ].join('|');
+
+  expect(rawScale.results.map(caseKey)).toEqual(
+    residualScale.results.map(caseKey)
+  );
+
+  expect(
+    rawScale.results.some((result, index) =>
+      Math.abs(
+        result.latestAdjustedZScore -
+        residualScale.results[index].latestAdjustedZScore
+      ) > 1e-9
+    )
+  ).toBe(true);
+});
+
+test('reports reproducible EXP-07 normalization sensitivity aggregates', () => {
+  const configuration = {
+    thresholds: [1.5, 2, 3],
+    trueCoefficients: [4, 8, 12],
+    assumedCoefficients: [0, 4, 8, 12, 16],
+    seeds: [7, 17, 27],
+    calibrationPoints: 30,
+    evaluationPoints: 40
+  };
+
+  const strategies = [
+    'raw-calibration-std',
+    'compensated-calibration-std'
+  ] as const;
+
+  for (const strategy of strategies) {
+    const experiment = runEnvironmentalCompensationExperiment(
+      configuration.thresholds,
+      configuration.trueCoefficients,
+      configuration.assumedCoefficients,
+      configuration.seeds,
+      configuration.calibrationPoints,
+      configuration.evaluationPoints,
+      strategy
+    );
+
+    const groups = [
+      { condition: 'normal', matched: true, mode: 'without-compensation' },
+      { condition: 'normal', matched: true, mode: 'with-compensation' },
+      { condition: 'normal', matched: false, mode: 'without-compensation' },
+      { condition: 'normal', matched: false, mode: 'with-compensation' },
+      { condition: 'structural-anomaly', matched: true, mode: 'without-compensation' },
+      { condition: 'structural-anomaly', matched: true, mode: 'with-compensation' },
+      { condition: 'structural-anomaly', matched: false, mode: 'without-compensation' },
+      { condition: 'structural-anomaly', matched: false, mode: 'with-compensation' }
+    ] as const;
+
+    const summary = groups.map((group) => {
+      const selected = experiment.results.filter((result) =>
+        result.condition === group.condition &&
+        result.compensationMode === group.mode &&
+        (result.trueTemperatureCoefficient === result.assumedTemperatureCoefficient) === group.matched
+      );
+
+      const totalFalseAlarms = selected.reduce(
+        (sum, result) => sum + result.falseAlarms,
+        0
+      );
+      const denominatorPerCase =
+        group.condition === 'normal'
+          ? configuration.evaluationPoints
+          : configuration.evaluationPoints / 2;
+      const detectedCases = selected.filter(
+        (result) => result.anomalyDetected
+      ).length;
+      const pointwisePostOnsetDetections = selected.reduce(
+        (sum, result) => sum + result.detectionRate,
+        0
+      );
+
+      return {
+        condition: group.condition,
+        coefficientMatch: group.matched ? 'matched' : 'mismatched',
+        compensation: group.mode,
+        cases: selected.length,
+        meanFalseAlarmsPerCase: totalFalseAlarms / selected.length,
+        falseAlarmRate: totalFalseAlarms / (selected.length * denominatorPerCase),
+        pointwisePostOnsetDetectionRate:
+          group.condition === 'structural-anomaly'
+            ? pointwisePostOnsetDetections / selected.length
+            : null,
+        caseLevelAnomalyDetectionRate:
+          group.condition === 'structural-anomaly'
+            ? detectedCases / selected.length
+            : null
+      };
+    });
+
+    const expected = strategy === 'raw-calibration-std'
+      ? {
+          falseAlarms: [6.2407407, 1.5555556, 6.2407407, 5.3796296, 2.5740741, 0.9074074, 2.5740741, 2.4212963],
+          falseAlarmRates: [0.1560185, 0.0388889, 0.1560185, 0.1344907, 0.1287037, 0.0453704, 0.1287037, 0.1210648],
+          detectionRates: [null, null, null, null, 0.9888889, 0.925, 0.9888889, 0.8594907]
+        }
+      : {
+          falseAlarms: [6.4259259, 1.7777778, 5.9907407, 4.8981481, 2.6851852, 1.0555556, 2.4490741, 2.1898148],
+          falseAlarmRates: [0.1606481, 0.0444444, 0.1497685, 0.1224537, 0.1342593, 0.0527778, 0.1224537, 0.1094907],
+          detectionRates: [null, null, null, null, 0.9907407, 0.9361111, 0.9842593, 0.8412037]
+        };
+
+    expect(summary.map((row) => row.cases)).toEqual([
+      54, 54, 216, 216, 54, 54, 216, 216
+    ]);
+
+    summary.forEach((row, index) => {
+      expect(row.meanFalseAlarmsPerCase).toBeCloseTo(
+        expected.falseAlarms[index],
+        4
+      );
+      expect(row.falseAlarmRate).toBeCloseTo(
+        expected.falseAlarmRates[index],
+        4
+      );
+
+      const expectedDetectionRate = expected.detectionRates[index];
+      if (expectedDetectionRate === null) {
+        expect(row.pointwisePostOnsetDetectionRate).toBeNull();
+        expect(row.caseLevelAnomalyDetectionRate).toBeNull();
+      } else {
+        expect(row.pointwisePostOnsetDetectionRate).toBeCloseTo(
+          expectedDetectionRate,
+          4
+        );
+        expect(row.caseLevelAnomalyDetectionRate).toBe(1);
+      }
+    });
+
+    console.log(
+      `EXP-07 normalization sensitivity: ${strategy}`,
+      JSON.stringify(summary)
+    );
+  }
+
+  expect(strategies).toHaveLength(2);
+});
+
 test('matches documented EXP-07 report aggregates', () => {
 const experiment = runEnvironmentalCompensationExperiment(
 [1.5, 2, 3],
@@ -673,4 +852,66 @@ for (const expected of expectedCases) {
 }
 
 });
+});
+
+
+describe('Temperature compensation calibration isolation', () => {
+  const makeMeasurements = (latestValue: number) => [
+    { timestamp: 0, sensorId: sensors[0]!.id, value: 10 },
+    { timestamp: 1, sensorId: sensors[0]!.id, value: 12 },
+    { timestamp: 2, sensorId: sensors[0]!.id, value: latestValue }
+  ];
+
+  const temperatures = [
+    { timestamp: 0, sensorId: 'TMP-TEST', value: 20 },
+    { timestamp: 1, sensorId: 'TMP-TEST', value: 22 },
+    { timestamp: 2, sensorId: 'TMP-TEST', value: 24 }
+  ];
+
+  test('uses the explicit assumed coefficient and calibration-only reference values', () => {
+    const result = compensateForTemperature(
+      sensors[0]!,
+      makeMeasurements(20),
+      temperatures,
+      { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
+    );
+
+    // Calibration means are (10 + 12) / 2 = 11 and (20 + 22) / 2 = 21.
+    expect(result.baselineTemperature).toBe(21);
+    expect(result.temperatureCoefficient).toBe(3);
+    expect(result.expectedValue).toBe(20);
+    expect(result.residual).toBe(0);
+  });
+
+  test('changing an evaluation reading cannot change the calibration baseline or reference temperature', () => {
+    const first = compensateForTemperature(
+      sensors[0]!,
+      makeMeasurements(20),
+      temperatures,
+      { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
+    );
+    const changedEvaluation = compensateForTemperature(
+      sensors[0]!,
+      makeMeasurements(100),
+      temperatures,
+      { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
+    );
+
+    expect(changedEvaluation.baselineTemperature).toBe(
+      first.baselineTemperature
+    );
+    expect(changedEvaluation.expectedValue).toBe(first.expectedValue);
+    expect(changedEvaluation.residual).toBe(80);
+  });
+
+  test('rejects a missing temperature reading for the latest measurement timestamp', () => {
+    expect(() =>
+      compensateForTemperature(
+        sensors[0]!,
+        makeMeasurements(20),
+        temperatures.slice(0, 2),
+        { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
+      )
+    ).toThrow('No synchronized temperature measurement found for timestamp 2.');
+  });
 });
