@@ -258,6 +258,19 @@ describe('Experiment 05 — Persistence Trade-off', () => {
       3 * 4 * 3
     );
 
+    for (const item of result.results) {
+      expect(item.detectionDelay).toBe(item.detectionIndex);
+
+      if (item.detectionIndex !== null) {
+        // A persistence alert is timestamped when the final required
+        // consecutive sample arrives, not at the run's first sample.
+        expect(item.detectionIndex).toBeGreaterThanOrEqual(
+          item.persistenceWindow - 1
+        );
+        expect(item.detectionIndex).toBeLessThan(item.evaluationCount);
+      }
+    }
+
     for (const summary of result.summaries) {
       expect(
         summary.falsePositiveRate
