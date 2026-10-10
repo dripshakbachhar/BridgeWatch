@@ -952,6 +952,12 @@ describe('EXP-07 anomaly severity sensitivity', () => {
           entry.anomalySeverityMultiplier
         );
         expect(result.anomalyDetected).toBe(result.detectionDelay !== null);
+        expect(result.anomalyInjected).toBe(
+          entry.anomalySeverityMultiplier > 0
+        );
+        expect(result.zeroSeverityFalsePositive).toBe(
+          entry.anomalySeverityMultiplier === 0 && result.anomalyDetected
+        );
         if (result.detectionDelay !== null) {
           expect(result.detectionDelay).toBeGreaterThanOrEqual(0);
           expect(result.detectionDelay).toBeLessThan(6);
