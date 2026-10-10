@@ -62,6 +62,35 @@ The following are aggregate results from the synthetic diagnostic run.
 | Structural anomaly, mismatched coefficients | Off | 2.57 | 98.89% |
 | Structural anomaly, mismatched coefficients | On | 2.19 | 84.12% |
 
+### 5.1 Normalization sensitivity results
+
+The following results were computed by the reproducible sensitivity test using the same deterministic synthetic cases for both explicit normalization strategies. Each group contains 54 matched-coefficient cases or 216 mismatched-coefficient cases.
+
+For normal scenarios, the false-alarm rate is total threshold exceedances divided by all evaluation points (`cases × 40`). For structural-anomaly scenarios, the reported false alarms occur before anomaly onset, so the false-alarm rate is divided by pre-onset points (`cases × 20`). Pointwise post-onset detection rate is the mean fraction of post-onset points exceeding the threshold. Case-level detection rate is the fraction of anomaly cases with at least one post-onset threshold exceedance.
+
+| Normalization scale | Condition | Coefficients | Compensation | Cases | Mean false alarms/case | False-alarm rate | Post-onset point detection | Case-level anomaly detection |
+|---|---|---|---|---:|---:|---:|---:|---:|
+| Raw calibration SD | Normal | Matched | Off | 54 | 6.24 | 15.60% | — | — |
+| Raw calibration SD | Normal | Matched | On | 54 | 1.56 | 3.89% | — | — |
+| Raw calibration SD | Normal | Mismatched | Off | 216 | 6.24 | 15.60% | — | — |
+| Raw calibration SD | Normal | Mismatched | On | 216 | 5.38 | 13.45% | — | — |
+| Raw calibration SD | Structural anomaly | Matched | Off | 54 | 2.57 | 12.87% | 98.89% | 100% |
+| Raw calibration SD | Structural anomaly | Matched | On | 54 | 0.91 | 4.54% | 92.50% | 100% |
+| Raw calibration SD | Structural anomaly | Mismatched | Off | 216 | 2.57 | 12.87% | 98.89% | 100% |
+| Raw calibration SD | Structural anomaly | Mismatched | On | 216 | 2.42 | 12.11% | 85.95% | 100% |
+| Compensated residual SD | Normal | Matched | Off | 54 | 6.43 | 16.06% | — | — |
+| Compensated residual SD | Normal | Matched | On | 54 | 1.78 | 4.44% | — | — |
+| Compensated residual SD | Normal | Mismatched | Off | 216 | 5.99 | 14.98% | — | — |
+| Compensated residual SD | Normal | Mismatched | On | 216 | 4.90 | 12.25% | — | — |
+| Compensated residual SD | Structural anomaly | Matched | Off | 54 | 2.69 | 13.43% | 99.07% | 100% |
+| Compensated residual SD | Structural anomaly | Matched | On | 54 | 1.06 | 5.28% | 93.61% | 100% |
+| Compensated residual SD | Structural anomaly | Mismatched | Off | 216 | 2.45 | 12.25% | 98.43% | 100% |
+| Compensated residual SD | Structural anomaly | Mismatched | On | 216 | 2.19 | 10.95% | 84.12% | 100% |
+
+**Observed interpretation:** both shared scales reduce normal-condition false alarms when compensation is enabled in matched cases. Under mismatched coefficients, the reduction is smaller. Across both scale strategies, compensation lowers pointwise post-onset detection rates, especially with mismatched coefficients; however, all tested anomaly cases still contain at least one detected post-onset point. This case-level metric is coarse and does not imply reliable detection delay, robustness, or field performance.
+
+These results are conditional on this synthetic generator, sensor configuration, thresholds, and seeds. The comparison isolates normalization scale within the implementation, but it does not establish which scale is preferable for real bridges.
+
 The anomaly-scenario false-alarm counts are reported as produced by the experiment; they should not be interpreted as equivalent to the normal-scenario false-alarm rate.
 
 ## 6. Interpretation
