@@ -687,6 +687,45 @@ test('reports reproducible EXP-07 normalization sensitivity aggregates', () => {
       };
     });
 
+    const expected = strategy === 'raw-calibration-std'
+      ? {
+          falseAlarms: [6.2407407, 1.5555556, 6.2407407, 5.3796296, 2.5740741, 0.9074074, 2.5740741, 2.4212963],
+          falseAlarmRates: [0.1560185, 0.0388889, 0.1560185, 0.1344907, 0.1287037, 0.0453704, 0.1287037, 0.1210648],
+          detectionRates: [null, null, null, null, 0.9888889, 0.925, 0.9888889, 0.8594907]
+        }
+      : {
+          falseAlarms: [6.4259259, 1.7777778, 5.9907407, 4.8981481, 2.6851852, 1.0555556, 2.4490741, 2.1898148],
+          falseAlarmRates: [0.1606481, 0.0444444, 0.1497685, 0.1224537, 0.1342593, 0.0527778, 0.1224537, 0.1094907],
+          detectionRates: [null, null, null, null, 0.9907407, 0.9361111, 0.9842593, 0.8412037]
+        };
+
+    expect(summary.map((row) => row.cases)).toEqual([
+      54, 54, 216, 216, 54, 54, 216, 216
+    ]);
+
+    summary.forEach((row, index) => {
+      expect(row.meanFalseAlarmsPerCase).toBeCloseTo(
+        expected.falseAlarms[index],
+        4
+      );
+      expect(row.falseAlarmRate).toBeCloseTo(
+        expected.falseAlarmRates[index],
+        4
+      );
+
+      const expectedDetectionRate = expected.detectionRates[index];
+      if (expectedDetectionRate === null) {
+        expect(row.pointwisePostOnsetDetectionRate).toBeNull();
+        expect(row.caseLevelAnomalyDetectionRate).toBeNull();
+      } else {
+        expect(row.pointwisePostOnsetDetectionRate).toBeCloseTo(
+          expectedDetectionRate,
+          4
+        );
+        expect(row.caseLevelAnomalyDetectionRate).toBe(1);
+      }
+    });
+
     console.log(
       `EXP-07 normalization sensitivity: ${strategy}`,
       JSON.stringify(summary)
