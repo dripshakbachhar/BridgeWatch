@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { buildExp07CsvReport } from '../src/engineering/exp07Report';
 import {
   runEnvironmentalAnomalySeveritySweep,
@@ -5,7 +7,7 @@ import {
 } from '../src/engineering/experiments';
 
 describe('EXP-07 CSV report export', () => {
-  test('creates deterministic CSV tables with explicit denominators', () => {
+  test('creates deterministic CSV tables with explicit denominators', async () => {
     const baseline = runEnvironmentalCompensationExperiment(
       [1.5, 2, 3], [4, 8, 12], [0, 4, 8, 12, 16], [7, 17, 27], 30, 40
     );
@@ -25,5 +27,11 @@ describe('EXP-07 CSV report export', () => {
     expect(report['main-summary.csv']).toContain('false_alarm_denominator');
     expect(report['severity-summary.csv']).toContain('post_onset_sample_denominator');
     expect(report['persistence-summary.csv']).toContain('detection_denominator');
+
+    const outputDirectory = resolve(process.cwd(), 'reports', 'exp07');
+    await mkdir(outputDirectory, { recursive: true });
+    for (const [filename, csv] of Object.entries(report)) {
+      await writeFile(resolve(outputDirectory, filename), csv, 'utf8');
+    }
   });
 });
