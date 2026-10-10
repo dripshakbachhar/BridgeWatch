@@ -3,6 +3,7 @@ import { sensors } from '../engineering/sensorConfig';
 import {
 inspectSignalComponents,
 runAnomalyRobustnessExperiment,
+runEnvironmentalAnomalySeveritySweep,
 runEnvironmentalCompensationExperiment,
 runNormalOperationExperiment,
 runPersistenceTradeoffExperiment,
@@ -913,5 +914,61 @@ describe('Temperature compensation calibration isolation', () => {
         { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
       )
     ).toThrow('No synchronized temperature measurement found for timestamp 2.');
+  });
+});
+
+
+describe('EXP-07 anomaly severity sensitivity', () => {
+  test('preserves the original anomaly magnitude by default', () => {
+    const defaults = runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12
+    );
+    const explicitDefault = runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12, 'pipeline-default', 2.5
+    );
+
+    expect(defaults.anomalySeverityMultiplier).toBe(2.5);
+    expect(defaults.results).toEqual(explicitDefault.results);
+  });
+
+  test('runs a deterministic sweep and reports onset-relative detection delay', () => {
+    const run = () => runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7, 17], 10, 12, [0, 0.5, 1, 2.5]
+    );
+    const first = run();
+    const second = run();
+
+    expect(first).toEqual(second);
+    expect(first.experimentId).toBe('EXP-07-SEVERITY-SWEEP');
+    expect(first.results.map((entry) => entry.anomalySeverityMultiplier)).toEqual(
+      [0, 0.5, 1, 2.5]
+    );
+
+    for (const entry of first.results) {
+      expect(entry.results.length).toBeGreaterThan(0);
+      for (const result of entry.results) {
+        expect(result.condition).toBe('structural-anomaly');
+        expect(result.anomalySeverityMultiplier).toBe(
+          entry.anomalySeverityMultiplier
+        );
+        expect(result.anomalyDetected).toBe(result.detectionDelay !== null);
+        if (result.detectionDelay !== null) {
+          expect(result.detectionDelay).toBeGreaterThanOrEqual(0);
+          expect(result.detectionDelay).toBeLessThan(6);
+        }
+      }
+    }
+  });
+
+  test('rejects empty, negative, and non-finite severity sweeps', () => {
+    expect(() => runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7], 10, 12, []
+    )).toThrow('EXP-07 severity sweep requires finite severity multipliers');
+    expect(() => runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7], 10, 12, [-0.5]
+    )).toThrow('EXP-07 severity sweep requires finite severity multipliers');
+    expect(() => runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7], 10, 12, [Number.NaN]
+    )).toThrow('EXP-07 severity sweep requires finite severity multipliers');
   });
 });
