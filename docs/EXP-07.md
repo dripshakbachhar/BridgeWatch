@@ -221,7 +221,7 @@ npm test -- src/tests/experiments.test.ts
 npm run build
 ```
 
-The targeted test command executes the experiment tests, including assertions against the documented severity-sweep, persistence, and zero-severity negative-control aggregates. The build command checks TypeScript and creates the production build. Passing these checks confirms reproducibility against this repository version; it does not independently validate the synthetic model or field performance. The test suite asserts the reported aggregates rather than exporting a standalone CSV or publication table.
+The targeted experiment test command checks the documented severity-sweep, persistence, and zero-severity negative-control aggregates. The report-export test also recomputes the default results, checks deterministic CSV output and explicit denominators, and writes four machine-readable CSV files. The build command checks TypeScript and creates the production build. Passing these checks confirms reproducibility against this repository version; it does not independently validate the synthetic model or field performance.
 
 ### 8.1 Configuration used for the documented aggregate tables
 
@@ -262,3 +262,22 @@ The seed list must contain at least one value. Each seed must be an unsigned 32-
 In this synthetic experiment, temperature compensation reduced false alarms, with a larger reduction when the assumed temperature coefficient matched the generating coefficient. The simulation also showed lower anomaly detection rates after compensation, particularly in mismatched cases.
 
 The defensible conclusion is that compensation and coefficient calibration deserve further evaluation—not that the method is validated for real-world bridge monitoring.
+
+
+### 8.3 Regenerating the machine-readable report
+
+From the repository root, run:
+
+```powershell
+npm ci
+npm run export:exp07
+```
+
+The command runs the deterministic exporter test and writes the following files under `reports/exp07/`:
+
+- `main-summary.csv` — condition × coefficient-match status × compensation mode; includes case counts, false-alarm totals and denominators, false-alarm rates, and (for anomaly cases) case-level and post-onset pointwise detection metrics.
+- `severity-summary.csv` — one row per severity multiplier and compensation mode; explicitly distinguishes the zero-severity negative control, includes the case-level crossing denominator, misses, post-onset sample denominator, and mean delay among crossing cases only.
+- `persistence-summary.csv` — non-zero severity results grouped by persistence window and compensation mode; includes the detection denominator, missed configurations, detected-case delay, and a separate normal-case denominator for mean false-alarm episodes.
+- `metadata.csv` — configuration arrays, sample lengths, normalization strategy, result-row counts, rounding rules, and a note that configurations are correlated synthetic cases rather than independent physical trials.
+
+CSV headers and row ordering are fixed. Rates are exported as percentages with two decimal places; means and delays use two decimal places; unavailable metrics are blank. The exporter does not add a wall-clock timestamp, so identical result objects produce byte-for-byte identical files. The tables are derived from the returned EXP-07 result objects rather than copied from the Markdown tables. Re-running the command overwrites the four generated files. The CSVs remain synthetic-analysis artifacts and must not be described as field validation.
