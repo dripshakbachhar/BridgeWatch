@@ -168,5 +168,15 @@ describe('EXP-07 multi-seed robustness study', () => {
     const outputDirectory = resolve(process.cwd(), 'reports', 'exp07');
     await mkdir(outputDirectory, { recursive: true });
     await writeFile(resolve(outputDirectory, 'seed-robustness.csv'), report, 'utf8');
+
+    // Emit a compact, machine-readable summary so CI logs preserve the
+    // computed evidence even when generated CSV files are not uploaded.
+    const summaryRows = outputRows.filter((row) =>
+      row.statistic === 'mean' || row.statistic === 'sample_sd' ||
+      row.statistic === 'min' || row.statistic === 'max'
+    );
+    console.log('EXP07_ROBUSTNESS_SUMMARY_JSON_BEGIN');
+    console.log(JSON.stringify(summaryRows));
+    console.log('EXP07_ROBUSTNESS_SUMMARY_JSON_END');
   });
 });
