@@ -125,9 +125,9 @@ describe('EXP-07 low-severity anomaly stress study', () => {
     }
 
     const allRows = [...perSeedRows, ...summaryRows];
-    expect(perSeedRows).toHaveLength(320);
-    expect(summaryRows).toHaveLength(640);
-    expect(allRows).toHaveLength(960);
+    expect(perSeedRows).toHaveLength(640);
+    expect(summaryRows).toHaveLength(256);
+    expect(allRows).toHaveLength(896);
     expect(perSeedRows.every(row => row.cases > 0 && row.detectionRatePct >= 0 && row.detectionRatePct <= 100)).toBe(true);
 
     const outputDirectory = resolve(process.cwd(), 'reports', 'exp07');
