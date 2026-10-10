@@ -10,7 +10,7 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "export:exp07": "vitest run scripts/export-exp07-report.test.ts",
-    "robustness:exp07": "vitest run src/tests/exp07-robustness.test.ts"
+    "robustness:exp07": "vitest run scripts/exp07-robustness.test.ts"
   },
   "dependencies": {
     "react": "19.3.0",
