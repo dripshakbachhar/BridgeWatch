@@ -152,6 +152,17 @@ export interface PersistenceTradeoffExperiment {
   summaries: PersistenceTradeoffSummary[];
 }
 
+export interface EnvironmentalPersistenceMetric {
+  /** Number of consecutive threshold exceedances required to alert. */
+  persistenceWindow: number;
+  /** Qualifying alert episodes in normal data or before anomaly onset. */
+  falseAlarmEpisodes: number;
+  /** Whether a qualifying persistence run completed after anomaly onset. */
+  anomalyDetected: boolean;
+  /** Evaluation index when the persistence requirement was first satisfied. */
+  detectionDelay: number | null;
+}
+
 export interface EnvironmentalCompensationExperimentResult {
   sensorId: string;
   componentId: string;
@@ -179,6 +190,8 @@ export interface EnvironmentalCompensationExperimentResult {
   /** Threshold crossing in the zero-severity negative control. */
   zeroSeverityFalsePositive: boolean;
   detectionDelay: number | null;
+  /** Secondary alert metrics; existing single-sample metrics remain unchanged. */
+  persistenceMetrics: EnvironmentalPersistenceMetric[];
 }
 
 export interface EnvironmentalCompensationExperiment {
@@ -1603,6 +1616,74 @@ function evaluateEnvironmentalSeries(
 
   const anomalyDetected = detectionDelay !== null;
 
+  const persistenceWindows = [1, 2, 3, 5];
+  const countPersistenceEpisodes = (
+    values: number[],
+    persistenceWindow: number
+  ): number => {
+    let consecutive = 0;
+    let episodes = 0;
+
+    for (const score of values) {
+      if (Math.abs(score) >= threshold) {
+        consecutive += 1;
+        if (consecutive === persistenceWindow) {
+          episodes += 1;
+        }
+      } else {
+        consecutive = 0;
+      }
+    }
+
+    return episodes;
+  };
+
+  const findPersistenceDetectionDelay = (
+    values: number[],
+    persistenceWindow: number
+  ): number | null => {
+    let consecutive = 0;
+
+    for (let index = 0; index < values.length; index += 1) {
+      if (Math.abs(values[index]!) >= threshold) {
+        consecutive += 1;
+        if (consecutive >= persistenceWindow) {
+          // Alert time is when the final required consecutive sample arrives.
+          return index;
+        }
+      } else {
+        consecutive = 0;
+      }
+    }
+
+    return null;
+  };
+
+  const persistenceMetrics: EnvironmentalPersistenceMetric[] =
+    persistenceWindows.map((persistenceWindow) => {
+      const preOnsetScores = scores.slice(0, localOnsetIndex);
+      const postOnsetDetectionDelay =
+        condition === 'structural-anomaly'
+          ? findPersistenceDetectionDelay(
+              postOnsetScores,
+              persistenceWindow
+            )
+          : null;
+
+      return {
+        persistenceWindow,
+        falseAlarmEpisodes:
+          condition === 'normal'
+            ? countPersistenceEpisodes(scores, persistenceWindow)
+            : countPersistenceEpisodes(
+                preOnsetScores,
+                persistenceWindow
+              ),
+        anomalyDetected: postOnsetDetectionDelay !== null,
+        detectionDelay: postOnsetDetectionDelay
+      };
+    });
+
   const detectionRate =
     condition === 'structural-anomaly' &&
     postOnsetScores.length > 0
@@ -1651,7 +1732,8 @@ function evaluateEnvironmentalSeries(
       condition === 'structural-anomaly' &&
       anomalySeverityMultiplier === 0 &&
       anomalyDetected,
-    detectionDelay
+    detectionDelay,
+    persistenceMetrics
   };
 }
 
