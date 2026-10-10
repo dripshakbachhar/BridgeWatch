@@ -1,3 +1,4 @@
+import { compensateForTemperature } from '../engineering/environment';
 import { sensors } from '../engineering/sensorConfig';
 import {
 inspectSignalComponents,
@@ -851,4 +852,66 @@ for (const expected of expectedCases) {
 }
 
 });
+});
+
+
+describe('Temperature compensation calibration isolation', () => {
+  const makeMeasurements = (latestValue: number) => [
+    { timestamp: 0, sensorId: sensors[0].id, value: 10 },
+    { timestamp: 1, sensorId: sensors[0].id, value: 12 },
+    { timestamp: 2, sensorId: sensors[0].id, value: latestValue }
+  ];
+
+  const temperatures = [
+    { timestamp: 0, sensorId: 'TMP-TEST', value: 20 },
+    { timestamp: 1, sensorId: 'TMP-TEST', value: 22 },
+    { timestamp: 2, sensorId: 'TMP-TEST', value: 24 }
+  ];
+
+  test('uses the explicit assumed coefficient and calibration-only reference values', () => {
+    const result = compensateForTemperature(
+      sensors[0],
+      makeMeasurements(20),
+      temperatures,
+      { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
+    );
+
+    // Calibration means are (10 + 12) / 2 = 11 and (20 + 22) / 2 = 21.
+    expect(result.baselineTemperature).toBe(21);
+    expect(result.temperatureCoefficient).toBe(3);
+    expect(result.expectedValue).toBe(20);
+    expect(result.residual).toBe(0);
+  });
+
+  test('changing an evaluation reading cannot change the calibration baseline or reference temperature', () => {
+    const first = compensateForTemperature(
+      sensors[0],
+      makeMeasurements(20),
+      temperatures,
+      { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
+    );
+    const changedEvaluation = compensateForTemperature(
+      sensors[0],
+      makeMeasurements(100),
+      temperatures,
+      { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
+    );
+
+    expect(changedEvaluation.baselineTemperature).toBe(
+      first.baselineTemperature
+    );
+    expect(changedEvaluation.expectedValue).toBe(first.expectedValue);
+    expect(changedEvaluation.residual).toBe(80);
+  });
+
+  test('rejects a missing temperature reading for the latest measurement timestamp', () => {
+    expect(() =>
+      compensateForTemperature(
+        sensors[0],
+        makeMeasurements(20),
+        temperatures.slice(0, 2),
+        { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
+      )
+    ).toThrow('No synchronized temperature measurement found for timestamp 2.');
+  });
 });
