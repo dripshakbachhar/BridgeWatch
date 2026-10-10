@@ -453,9 +453,9 @@ Each seed-level group combines configurations from the existing threshold/sensor
 
 ## 14. Temperature-coefficient calibration-error sensitivity
 
-This study fixes the synthetic true temperature coefficient at 8 and tests assumed coefficients 0, 2, 4, 6, 8, 10, 12, 14, and 16. The signed error is defined as assumed minus true coefficient; negative and positive errors are retained separately because under-compensation and over-compensation need not behave symmetrically. Absolute error is reported as a separate descriptive axis.
+This study uses true coefficients 4, 8, and 12 with assumed coefficients 0, 4, 8, 12, and 16. It groups compensation-on results by signed error (assumed minus true): -12, -8, -4, 0, +4, +8, and +12. The no-compensation baseline is recorded separately because its behavior does not depend on the assumed coefficient. Negative and positive errors are kept separate because under-compensation and over-compensation need not behave symmetrically.
 
-The experiment uses seeds 101–110, thresholds 1.5/2/3, calibration length 30, evaluation length 40, `pipeline-default` normalization, weak anomaly severity multipliers 0.5 and 1.0, compensation off/on, and persistence windows 1/2/3/5. Results are aggregated across thresholds within each seed-level coefficient/mode/condition/window group, then summarized across seeds with mean, sample standard deviation, minimum, and maximum.
+The experiment uses seeds 101–110, thresholds 1.5/2/3, calibration length 30, evaluation length 40, `pipeline-default` normalization, severity multipliers 0, 0.5, and 1.0 (zero is the negative control), compensation off/on, and persistence windows 1/2/3/5. Results are aggregated across thresholds and available true/assumed coefficient pairs within each seed-level signed-error/mode/window group, then summarized across seeds with mean, sample standard deviation, minimum, and maximum. Group sizes differ by signed error because only some true/assumed pairs produce each error; comparisons across errors are therefore descriptive, not perfectly balanced contrasts.
 
 Run locally with:
 
@@ -466,3 +466,28 @@ npm run coefficient-error:exp07
 The command writes `reports/exp07/coefficient-error-sensitivity.csv` and emits a compact machine-readable summary between explicit markers in CI logs. For normal-operation rows, detection and miss metrics are not applicable; false-alarm episodes are measured over the full evaluation interval. For structural-anomaly rows, false-alarm episodes are measured before onset, and case detection, misses, and mean delay among detected cases are reported. Delay alone must not be interpreted without the detection rate.
 
 The coefficient values and severity multipliers are synthetic experiment settings, not calibrated physical parameters. These runs share deterministic generator structure, and the across-seed summaries are descriptive rather than confidence intervals. No detector defaults are changed and no real-bridge performance claim is made. The results subsection will be populated after the study passes CI.
+
+### 14.1 Observed coefficient-error results
+
+The coefficient-error experiment passed the automated test, coefficient sensitivity study, and production build in CI. Across-seed means below are based on the emitted JSON summary. “Baseline” means compensation off; its assumed-coefficient field is not applicable.
+
+| Severity | Coefficient error | Mode | Window | Case detection / negative-control alert rate | Mean pre-onset false-alarm episodes/config | Mean delay (detected cases only) |
+|---:|---:|---|---:|---:|---:|---:|
+| 0.5 | Baseline | Off | 1 | 88.33% | 0.994 | 2.00 |
+| 0.5 | 0 | On | 1 | 60.00% | 0.483 | 7.08 |
+| 0.5 | -4 | On | 1 | 75.00% | 0.770 | 3.94 |
+| 0.5 | +4 | On | 1 | 36.67% | 0.750 | 9.69 |
+| 0.5 | 0 | On | 5 | 8.33% | 0.000 | 11.17 |
+| 0.5 | -4 | On | 5 | 36.67% | 0.020 | 8.57 |
+| 0.5 | +4 | On | 5 | 1.67% | 0.020 | 18.00 |
+| 1.0 | Baseline | Off | 1 | 99.44% | 0.994 | 0.94 |
+| 1.0 | 0 | On | 1 | 83.33% | 0.483 | 4.11 |
+| 1.0 | -4 | On | 1 | 98.33% | 0.770 | 2.03 |
+| 1.0 | +4 | On | 1 | 66.67% | 0.750 | 7.08 |
+| 1.0 | 0 | On | 5 | 55.00% | 0.000 | 10.13 |
+| 1.0 | -4 | On | 5 | 70.00% | 0.020 | 7.62 |
+| 1.0 | +4 | On | 5 | 26.67% | 0.020 | 14.58 |
+
+For severity zero, the same detection-rate field is a **false-alert rate** because no anomaly was injected. With coefficient error 0 and window 1, the negative-control alert rate averaged 30.00%, versus 46.67% for error -4 and 56.67% for error +4. Thus the coefficient mismatch direction mattered in this synthetic setup; equal absolute errors did not produce equal outcomes. At non-zero severity, the +4 error group generally had lower detection and longer detected-case delay than the -4 group in the examples above. Increasing persistence from one to five samples reduced pre-onset false-alarm episodes but also reduced detection and increased delay/misses.
+
+These results do not establish that a negative coefficient error is generally preferable. The signed-error groups have different numbers and combinations of true/assumed coefficients, the data are synthetic, and delay is conditional on detection. Use the full CSV for all signed errors, all three severities, all windows, and descriptive seed variability; do not choose detector defaults from this study alone.
