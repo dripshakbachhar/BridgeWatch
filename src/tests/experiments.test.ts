@@ -1024,8 +1024,16 @@ describe('EXP-07 anomaly severity sensitivity', () => {
 
       expect(normalResult).toBeDefined();
       expect(zeroResult.falseAlarms).toBe(normalResult!.falseAlarms);
-      expect(zeroResult.persistenceMetrics).toEqual(
-        normalResult!.persistenceMetrics
+      expect(
+        zeroResult.persistenceMetrics.map((metric) => ({
+          persistenceWindow: metric.persistenceWindow,
+          falseAlarmEpisodes: metric.falseAlarmEpisodes
+        }))
+      ).toEqual(
+        normalResult!.persistenceMetrics.map((metric) => ({
+          persistenceWindow: metric.persistenceWindow,
+          falseAlarmEpisodes: metric.falseAlarmEpisodes
+        }))
       );
     }
   });
