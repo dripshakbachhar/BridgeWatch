@@ -264,8 +264,7 @@ function metadataCsv(
     ['main_result_row_count', baseline.results.length],
     ['severity_result_row_count', sweep.results.reduce((sum, entry) => sum + entry.results.length, 0)],
     ['rounding_rule', 'Display rates as percentages with 2 decimal places; means and delays with 2 decimal places; null metrics are blank.'],
-    ['dependence_note', 'Configuration rows share deterministic synthetic inputs and are not independent physical trials.'],
-    ['generated_at', null]
+    ['dependence_note', 'Configuration rows share deterministic synthetic inputs and are not independent physical trials.']
   ];
   return toCsv(['key', 'value'], rows);
 }
