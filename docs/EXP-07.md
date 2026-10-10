@@ -103,7 +103,7 @@ For normal scenarios, the false-alarm rate is total threshold exceedances divide
 
 These results are conditional on this synthetic generator, sensor configuration, thresholds, and seeds. The comparison isolates normalization scale within the implementation, but it does not establish which scale is preferable for real bridges.
 
-The anomaly-scenario false-alarm counts are reported as produced by the experiment; they should not be interpreted as equivalent to the normal-scenario false-alarm rate.
+For non-zero severity anomaly cases, false alarms are counted only before the injected step begins. In the zero-severity negative control, no step is injected, so the entire evaluation period is negative data: all threshold alerts across the full evaluation period are counted as false alarms, including persistence-based episodes. This makes the negative-control accounting consistent with the normal condition.
 
 
 ### 5.2 Anomaly-severity sensitivity sweep
