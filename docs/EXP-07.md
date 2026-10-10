@@ -97,6 +97,31 @@ These results are conditional on this synthetic generator, sensor configuration,
 
 The anomaly-scenario false-alarm counts are reported as produced by the experiment; they should not be interpreted as equivalent to the normal-scenario false-alarm rate.
 
+
+### 5.2 Anomaly-severity sensitivity sweep
+
+EXP-07 supports a controlled sweep over injected structural-step magnitudes using `runEnvironmentalAnomalySeveritySweep`. Each multiplier scales the generator's anomaly offset relative to the configured sensor's `baselineStd`; it is a synthetic scenario parameter, not a calibrated measure of real damage.
+
+The default sweep uses multipliers `[0, 0.5, 1, 1.5, 2.5]`. A multiplier of `0` is a negative control: the scenario is labelled as an anomaly case but has no injected structural offset. The original experiment behavior is preserved because the existing `runEnvironmentalCompensationExperiment` default remains `2.5`.
+
+Example:
+
+```ts
+const sweep = runEnvironmentalAnomalySeveritySweep(
+  [1.5, 2, 3],
+  [4, 8, 12],
+  [0, 4, 8, 12, 16],
+  [7, 17, 27],
+  30,
+  40,
+  [0, 0.5, 1, 1.5, 2.5]
+);
+```
+
+Each sweep entry contains structural-anomaly results for one multiplier, using the same thresholds, coefficients, seeds, and calibration/evaluation lengths. `detectionDelay` is the number of evaluation samples from the anomaly-onset sample to the first threshold exceedance; `0` means detection at the first post-onset sample, and `null` means no post-onset threshold crossing. Case-level detection is derived from whether this delay is non-null. False alarms in anomaly scenarios are counted only before onset.
+
+The sweep tests whether detection behavior changes as the injected step becomes smaller. It does not by itself establish realistic damage severity, detection reliability on operating bridges, or field-calibrated alert thresholds. The severity sweep is deterministic for a fixed configuration and seed list.
+
 ## 6. Interpretation
 
 ### 6.1 Matched coefficients
