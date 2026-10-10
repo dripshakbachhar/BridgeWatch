@@ -994,6 +994,42 @@ describe('EXP-07 anomaly severity sensitivity', () => {
     }
   });
 
+  test('counts the full evaluation period as false alarms in the zero-severity control', () => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12,
+      'pipeline-default', 0, [1, 2, 3, 5]
+    );
+    const normalResults = experiment.results.filter(
+      (result) => result.condition === 'normal'
+    );
+    const zeroSeverityResults = experiment.results.filter(
+      (result) =>
+        result.condition === 'structural-anomaly' &&
+        result.anomalySeverityMultiplier === 0
+    );
+
+    expect(zeroSeverityResults).toHaveLength(normalResults.length);
+    for (const zeroResult of zeroSeverityResults) {
+      const normalResult = normalResults.find(
+        (result) =>
+          result.sensorId === zeroResult.sensorId &&
+          result.seed === zeroResult.seed &&
+          result.threshold === zeroResult.threshold &&
+          result.trueTemperatureCoefficient ===
+            zeroResult.trueTemperatureCoefficient &&
+          result.assumedTemperatureCoefficient ===
+            zeroResult.assumedTemperatureCoefficient &&
+          result.compensationMode === zeroResult.compensationMode
+      );
+
+      expect(normalResult).toBeDefined();
+      expect(zeroResult.falseAlarms).toBe(normalResult!.falseAlarms);
+      expect(zeroResult.persistenceMetrics).toEqual(
+        normalResult!.persistenceMetrics
+      );
+    }
+  });
+
   test('reproduces the documented severity and persistence aggregates', () => {
     const configuration = {
       thresholds: [1.5, 2, 3],
