@@ -450,3 +450,19 @@ npm run coefficient-error:exp07
 The command writes `reports/exp07/coefficient-error-sensitivity.csv` and emits seed-level and across-seed JSON summaries between explicit markers in CI logs. Outcomes include pre-onset false-alarm episodes per configuration, persistence case-detection rate, detected-case-only delay, and missed cases. At severity zero, a qualifying post-onset alert is a negative-control false alert, not a successful anomaly detection. The signed coefficient error is in the generator's coefficient units; it is not a percentage calibration error.
 
 Each seed-level group combines configurations from the existing threshold/sensor/coefficient grid, which share synthetic model structure and should not be treated as independent physical trials. Across-seed standard deviations and ranges are descriptive rather than confidence intervals. Results can reveal directional asymmetry between under- and over-compensation, but cannot establish field performance or justify changing defaults without additional validation. Measured findings will be added after the CI experiment completes.
+
+## 14. Temperature-coefficient calibration-error sensitivity
+
+This study fixes the synthetic true temperature coefficient at 8 and tests assumed coefficients 0, 2, 4, 6, 8, 10, 12, 14, and 16. The signed error is defined as assumed minus true coefficient; negative and positive errors are retained separately because under-compensation and over-compensation need not behave symmetrically. Absolute error is reported as a separate descriptive axis.
+
+The experiment uses seeds 101–110, thresholds 1.5/2/3, calibration length 30, evaluation length 40, `pipeline-default` normalization, weak anomaly severity multipliers 0.5 and 1.0, compensation off/on, and persistence windows 1/2/3/5. Results are aggregated across thresholds within each seed-level coefficient/mode/condition/window group, then summarized across seeds with mean, sample standard deviation, minimum, and maximum.
+
+Run locally with:
+
+```powershell
+npm run coefficient-error:exp07
+```
+
+The command writes `reports/exp07/coefficient-error-sensitivity.csv` and emits a compact machine-readable summary between explicit markers in CI logs. For normal-operation rows, detection and miss metrics are not applicable; false-alarm episodes are measured over the full evaluation interval. For structural-anomaly rows, false-alarm episodes are measured before onset, and case detection, misses, and mean delay among detected cases are reported. Delay alone must not be interpreted without the detection rate.
+
+The coefficient values and severity multipliers are synthetic experiment settings, not calibrated physical parameters. These runs share deterministic generator structure, and the across-seed summaries are descriptive rather than confidence intervals. No detector defaults are changed and no real-bridge performance claim is made. The results subsection will be populated after the study passes CI.
