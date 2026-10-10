@@ -481,3 +481,18 @@ The stratified experiment passed CI, including the automated test suite, coeffic
 **Interpretation:** in this particular synthetic setting, the direction of coefficient error matters: at severity 1.0 and a one-sample window, the +4 group detected 66.67% of cases versus 98.33% for -4. With a five-sample window, detection fell further in all compared groups as pre-onset false-alarm episodes declined. For severity zero, the reported percentage is a false-alert rate, not anomaly detection. The baseline and compensation-on groups are stratified by true coefficient, but they are still synthetic configuration aggregates, not independent physical trials.
 
 Do not conclude that underestimation is generally safer or choose defaults from this one slice. The result is sensitive to the synthetic generator, threshold/sensor mix, and persistence window. The full CSV includes all true coefficients, available signed errors, severities, windows, and descriptive across-seed variability.
+
+### 14.2 Paired seed-direction check for signed coefficient error
+
+To check whether the signed-error contrast in Section 14.1 is an artifact of the ten-seed average, the coefficient-error output was also inspected as paired seed-level comparisons. For each seed, severity, true-coefficient stratum, and persistence window, the detection rate for signed error −4 was compared with the corresponding +4 result. The table reports the mean case-detection rate for each direction and the number of seeds in which −4 was higher, tied, or lower. Only non-zero severities are interpreted as anomaly detection; severity zero remains a negative control.
+
+| Severity | Window | Mean detection, error −4 | Mean detection, error +4 | Seeds −4 higher / tied / lower |
+|---:|---:|---:|---:|---:|
+| 0.5 | 1 | 75.00% | 36.67% | 10 / 0 / 0 |
+| 0.5 | 3 | 60.00% | 3.33% | 10 / 0 / 0 |
+| 0.5 | 5 | 36.67% | 1.67% | 10 / 0 / 0 |
+| 1.0 | 1 | 98.33% | 66.67% | 10 / 0 / 0 |
+| 1.0 | 3 | 78.33% | 41.67% | 10 / 0 / 0 |
+| 1.0 | 5 | 70.00% | 26.67% | 10 / 0 / 0 |
+
+The same direction was observed within each of the three configured true-coefficient strata in this deterministic grid. This consistency makes the signed-error contrast less likely to be caused by one unusual seed in these tested configurations. It does **not** show that underestimating the coefficient is generally safer: the result is conditional on the synthetic generator, normalization, thresholds, sensor/configuration mix, and selected error magnitudes. The seed runs are deterministic sensitivity checks, not independent bridges, and the table does not establish a general law or justify changing compensation defaults. A next validation step would require independently sourced sensor records, a pre-specified evaluation protocol, and ground-truth events.
