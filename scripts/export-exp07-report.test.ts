@@ -51,10 +51,10 @@ describe('EXP-07 CSV report export', () => {
 
 
     const documentedMainRows = [
-      'normal,matched,off,54,337,2160,6.24,15.60,,,,,',
-      'normal,matched,on,54,96,2160,1.78,4.44,,,,,',
-      'normal,mismatched,off,216,1348,8640,6.24,15.60,,,,,',
-      'normal,mismatched,on,216,1058,8640,4.90,12.25,,,,,',
+      'normal,matched,off,54,337,2160,6.24,15.60,,,,,,',
+      'normal,matched,on,54,96,2160,1.78,4.44,,,,,,',
+      'normal,mismatched,off,216,1348,8640,6.24,15.60,,,,,,',
+      'normal,mismatched,on,216,1058,8640,4.90,12.25,,,,,,',
       'structural-anomaly,matched,off,54,139,1080,2.57,12.87,54,54,100.00,1080,98.89,',
       'structural-anomaly,matched,on,54,57,1080,1.06,5.28,54,54,100.00,1080,93.61,',
       'structural-anomaly,mismatched,off,216,556,4320,2.57,12.87,216,216,100.00,4320,98.89,',
