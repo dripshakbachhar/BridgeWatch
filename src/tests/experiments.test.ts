@@ -609,6 +609,93 @@ test('compares normalization scales on identical EXP-07 synthetic cases', () => 
   ).toBe(true);
 });
 
+test('reports reproducible EXP-07 normalization sensitivity aggregates', () => {
+  const configuration = {
+    thresholds: [1.5, 2, 3],
+    trueCoefficients: [4, 8, 12],
+    assumedCoefficients: [0, 4, 8, 12, 16],
+    seeds: [7, 17, 27],
+    calibrationPoints: 30,
+    evaluationPoints: 40
+  };
+
+  const strategies = [
+    'raw-calibration-std',
+    'compensated-calibration-std'
+  ] as const;
+
+  for (const strategy of strategies) {
+    const experiment = runEnvironmentalCompensationExperiment(
+      configuration.thresholds,
+      configuration.trueCoefficients,
+      configuration.assumedCoefficients,
+      configuration.seeds,
+      configuration.calibrationPoints,
+      configuration.evaluationPoints,
+      strategy
+    );
+
+    const groups = [
+      { condition: 'normal', matched: true, mode: 'without-compensation' },
+      { condition: 'normal', matched: true, mode: 'with-compensation' },
+      { condition: 'normal', matched: false, mode: 'without-compensation' },
+      { condition: 'normal', matched: false, mode: 'with-compensation' },
+      { condition: 'structural-anomaly', matched: true, mode: 'without-compensation' },
+      { condition: 'structural-anomaly', matched: true, mode: 'with-compensation' },
+      { condition: 'structural-anomaly', matched: false, mode: 'without-compensation' },
+      { condition: 'structural-anomaly', matched: false, mode: 'with-compensation' }
+    ] as const;
+
+    const summary = groups.map((group) => {
+      const selected = experiment.results.filter((result) =>
+        result.condition === group.condition &&
+        result.compensationMode === group.mode &&
+        (result.trueTemperatureCoefficient === result.assumedTemperatureCoefficient) === group.matched
+      );
+
+      const totalFalseAlarms = selected.reduce(
+        (sum, result) => sum + result.falseAlarms,
+        0
+      );
+      const denominatorPerCase =
+        group.condition === 'normal'
+          ? configuration.evaluationPoints
+          : configuration.evaluationPoints / 2;
+      const detectedCases = selected.filter(
+        (result) => result.anomalyDetected
+      ).length;
+      const pointwisePostOnsetDetections = selected.reduce(
+        (sum, result) => sum + result.detectionRate,
+        0
+      );
+
+      return {
+        condition: group.condition,
+        coefficientMatch: group.matched ? 'matched' : 'mismatched',
+        compensation: group.mode,
+        cases: selected.length,
+        meanFalseAlarmsPerCase: totalFalseAlarms / selected.length,
+        falseAlarmRate: totalFalseAlarms / (selected.length * denominatorPerCase),
+        pointwisePostOnsetDetectionRate:
+          group.condition === 'structural-anomaly'
+            ? pointwisePostOnsetDetections / selected.length
+            : null,
+        caseLevelAnomalyDetectionRate:
+          group.condition === 'structural-anomaly'
+            ? detectedCases / selected.length
+            : null
+      };
+    });
+
+    console.log(
+      `EXP-07 normalization sensitivity: ${strategy}`,
+      JSON.stringify(summary)
+    );
+  }
+
+  expect(strategies).toHaveLength(2);
+});
+
 test('matches documented EXP-07 report aggregates', () => {
 const experiment = runEnvironmentalCompensationExperiment(
 [1.5, 2, 3],
