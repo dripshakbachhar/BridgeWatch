@@ -169,6 +169,10 @@ export interface EnvironmentalCompensationExperimentResult {
   latestRawZScore: number;
   latestAdjustedZScore: number;
   latestResidual: number;
+  normalizationStrategy:
+    | 'pipeline-default'
+    | 'raw-calibration-std'
+    | 'compensated-calibration-std';
 }
 
 export interface EnvironmentalCompensationExperiment {
@@ -179,6 +183,10 @@ export interface EnvironmentalCompensationExperiment {
   seeds: number[];
   calibrationPoints: number;
   evaluationPoints: number;
+  normalizationStrategy:
+    | 'pipeline-default'
+    | 'raw-calibration-std'
+    | 'compensated-calibration-std';
   results: EnvironmentalCompensationExperimentResult[];
 }
 
@@ -1414,7 +1422,11 @@ function evaluateEnvironmentalSeries(
   condition: 'normal' | 'structural-anomaly',
   compensationMode:
     | 'without-compensation'
-    | 'with-compensation'
+    | 'with-compensation',
+  normalizationStrategy:
+    | 'pipeline-default'
+    | 'raw-calibration-std'
+    | 'compensated-calibration-std' = 'pipeline-default'
 ): EnvironmentalCompensationExperimentResult {
   const calibrationMeasurements =
     series.measurements.slice(0, calibrationPoints);
@@ -1467,6 +1479,15 @@ function evaluateEnvironmentalSeries(
     1e-9
   );
 
+  const normalizationStd =
+    normalizationStrategy === 'raw-calibration-std'
+      ? calibrationStd
+      : normalizationStrategy === 'compensated-calibration-std'
+        ? compensatedCalibrationStd
+        : compensationMode === 'without-compensation'
+          ? calibrationStd
+          : compensatedCalibrationStd;
+
   const evaluationMeasurements =
     series.measurements.slice(
       calibrationPoints,
@@ -1487,7 +1508,9 @@ function evaluateEnvironmentalSeries(
     rawScores.push(rawScore);
 
     if (compensationMode === 'without-compensation') {
-      scores.push(rawScore);
+      scores.push(
+        (measurement.value - calibrationMean) / normalizationStd
+      );
       residuals.push(measurement.value - calibrationMean);
       continue;
     }
@@ -1518,11 +1541,9 @@ function evaluateEnvironmentalSeries(
       }
     );
 
-    // Normalize against compensated calibration variability,
-    // not the original signal's standard deviation.
-    scores.push(
-      compensated.residual / compensatedCalibrationStd
-    );
+    // Sensitivity runs can apply either calibration scale to either
+    // processing mode; the default preserves the original pipeline.
+    scores.push(compensated.residual / normalizationStd);
 
     residuals.push(compensated.residual);
   }
@@ -1584,7 +1605,8 @@ function evaluateEnvironmentalSeries(
     latestResidual:
       residuals.length > 0
         ? residuals[residuals.length - 1]
-        : 0
+        : 0,
+    normalizationStrategy
   };
 }
 
@@ -1594,7 +1616,11 @@ export function runEnvironmentalCompensationExperiment(
   assumedTemperatureCoefficients = [0, 4, 8, 12, 16],
   seeds = [7, 17, 27],
   calibrationPoints = 30,
-  evaluationPoints = 40
+  evaluationPoints = 40,
+  normalizationStrategy:
+    | 'pipeline-default'
+    | 'raw-calibration-std'
+    | 'compensated-calibration-std' = 'pipeline-default'
 ): EnvironmentalCompensationExperiment {
   if (
     !Number.isInteger(calibrationPoints) ||
@@ -1734,7 +1760,8 @@ export function runEnvironmentalCompensationExperiment(
                     calibrationPoints,
                     evaluationPoints,
                     condition,
-                    compensationMode
+                    compensationMode,
+                    normalizationStrategy
                   )
                 );
               }
@@ -1753,6 +1780,7 @@ export function runEnvironmentalCompensationExperiment(
     seeds,
     calibrationPoints,
     evaluationPoints,
+    normalizationStrategy,
     results
   };
 }
