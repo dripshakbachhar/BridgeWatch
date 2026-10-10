@@ -143,6 +143,34 @@ Across these same scored configurations, mean pre-onset false alarms in the stru
 
 The sweep tests whether detection behavior changes as the injected step becomes smaller. It does not by itself establish realistic damage severity, detection reliability on operating bridges, or field-calibrated alert thresholds. The severity sweep is deterministic for a fixed configuration and seed list.
 
+### 5.3 Persistence-based alert sensitivity
+
+The evaluator now also records a persistence-based alert metric for windows of **1, 2, 3, and 5 consecutive evaluation samples**. The existing single-sample metrics remain unchanged. For each window, an alert is recorded only after the required consecutive samples meet or exceed the same absolute z-score threshold. Detection delay is measured at the sample where the persistence requirement is fulfilled. False-alarm episodes count contiguous qualifying runs in normal data (or only the pre-onset segment in anomaly scenarios), rather than counting every above-threshold sample as a separate event.
+
+The following aggregate was executed in CI using the same default EXP-07 grid. Detection results pool the four non-zero severity settings (0.5, 1, 1.5, 2.5), giving **1,080 threshold-specific configurations per compensation mode and window**. These are correlated configurations sharing deterministic scenarios, not independent field trials. Mean delay is computed only for detected cases.
+
+| Persistence window | Compensation | Detection rate across non-zero severities | Missed configurations | Mean detection delay (samples) | Mean normal false-alarm episodes |
+|---:|---|---:|---:|---:|---:|
+| 1 | Off | 99.07% | 10/1,080 | 0.70 | 2.28 |
+| 2 | Off | 95.37% | 50/1,080 | 2.21 | 1.35 |
+| 3 | Off | 93.06% | 75/1,080 | 3.21 | 0.80 |
+| 5 | Off | 86.11% | 150/1,080 | 5.49 | 0.43 |
+| 1 | On | 85.65% | 155/1,080 | 2.36 | 2.09 |
+| 2 | On | 75.09% | 269/1,080 | 4.04 | 0.87 |
+| 3 | On | 69.72% | 327/1,080 | 4.79 | 0.51 |
+| 5 | On | 59.17% | 441/1,080 | 6.60 | 0.19 |
+
+The zero-severity negative control confirms the same trade-off. Its fraction of configurations with at least one qualifying post-onset alert fell as persistence increased:
+
+| Persistence window | Compensation off | Compensation on |
+|---:|---:|---:|
+| 1 | 77.78% | 60.74% |
+| 2 | 51.85% | 32.59% |
+| 3 | 44.44% | 25.19% |
+| 5 | 24.07% | 11.48% |
+
+**Interpretation:** persistence filters out short excursions, substantially reducing normal alert episodes and negative-control crossings. It also delays alerts and misses more injected anomalies, especially when compensation is enabled or the injected step is subtle. These results do not identify a universally best window. A window should be chosen only after the acceptable false-alarm/missed-detection trade-off is specified, and all settings remain synthetic pending external validation.
+
 ## 6. Interpretation
 
 ### 6.1 Matched coefficients
