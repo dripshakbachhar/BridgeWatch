@@ -27,6 +27,14 @@ The experiment compares measurements processed without compensation against meas
 
 These are software-generated scenarios, not measurements collected from an operating bridge.
 
+### 3.1 Synthetic signal assumptions and pairing
+
+The generator creates a smooth temperature profile from a linear trend, a sinusoidal term, and small bounded random jitter. Each strain reading combines its configured baseline, a periodic sensor-variation term, a temperature contribution using the configured true coefficient, and bounded symmetric noise formed from a sum of uniform random draws. This noise has the configured scale but is not Gaussian.
+
+For each seed and true coefficient, the normal and structural-anomaly cases use the same deterministic temperature and noise sequence. The anomaly case adds a constant step equal to `anomalySeverityMultiplier × sensor.baselineStd` beginning halfway through the evaluation period. This pairing helps isolate the step's effect within this generator; it does not make the generator physically realistic. The step is applied to each strain-sensor series evaluated by EXP-07, rather than being localized to a specific bridge component.
+
+The compensation calculation uses the assumed coefficient and calibration-only baseline/reference-temperature estimates. It does not use evaluation values to estimate the normalization scale. Because the assumed coefficient is supplied by the experiment configuration, these results evaluate known-coefficient and mismatched-coefficient scenarios; they do not validate an online coefficient-estimation method.
+
 ## 4. Metrics
 
 - **False alarms:** reported false-alarm count for a result in a normal or anomalous scenario, as implemented by the experiment.
@@ -194,11 +202,14 @@ The results suggest that coefficient accuracy matters in this simulated setup. C
 ## 7. Limitations
 
 1. The measurements are synthetic and do not establish performance on real bridges.
-2. Results depend on the signal generator, anomaly model, noise assumptions, calibration window, thresholds, and coefficient values.
-3. The simulation does not establish that temperature is the only environmental influence on a real bridge.
-4. A reduction in false alarms does not, by itself, prove improved safety or maintenance decisions.
-5. The documented severity-sweep and persistence aggregate tables are regression-checked against the current implementation by `src/tests/experiments.test.ts`. This guards against accidental drift, but independent reproduction and external review are still needed before publication.
-6. Field validation would require suitable real sensor data, documented ground truth where available, and an appropriate evaluation protocol.
+2. The temperature profile is a smooth trend plus sinusoid and bounded jitter; the noise is bounded and symmetric, not Gaussian.
+3. The anomaly is an abrupt constant additive step applied to every strain-sensor series in the experiment, not a localized or evolving physical damage model.
+4. The simulation omits effects such as sensor drift, outliers, changing noise variance, time-varying temperature coefficients, coupled structural dynamics, and multiple interacting environmental factors.
+5. Results depend on the signal generator, anomaly model, noise assumptions, calibration window, thresholds, and coefficient values. The supplied assumed coefficient means the experiment does not validate coefficient estimation.
+6. The simulation does not establish that temperature is the only environmental influence on a real bridge.
+7. A reduction in false alarms does not, by itself, prove improved safety or maintenance decisions.
+8. The documented severity-sweep and persistence aggregate tables are regression-checked against the current implementation by `src/tests/experiments.test.ts`. This guards against accidental drift, but independent reproduction and external review are still needed before publication.
+9. Field validation would require suitable real sensor data, documented ground truth where available, and an appropriate evaluation protocol.
 
 ## 8. Reproducibility
 
