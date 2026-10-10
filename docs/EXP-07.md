@@ -132,9 +132,9 @@ Each sweep entry contains structural-anomaly results for one multiplier, using t
 
 #### 5.2.1 Default severity-sweep results
 
-The following aggregates were calculated by executing the default sweep in CI and summarizing the emitted deterministic results. Each severity and processing mode contains **270 scored configurations** across thresholds `[1.5, 2, 3]`, true coefficients `[4, 8, 12]`, assumed coefficients `[0, 4, 8, 12, 16]`, seeds `[7, 17, 27]`, and the configured sensors. These are repeated threshold-specific scores on shared deterministic scenarios, **not 270 independent physical trials**. Detection delay is averaged only over configurations that crossed the threshold.
+The following aggregates were calculated by executing the default sweep in CI and summarizing the emitted deterministic results. Each severity and processing mode contains **270 scored configurations** across thresholds `[1.5, 2, 3]`, true coefficients `[4, 8, 12]`, assumed coefficients `[0, 4, 8, 12, 16]`, seeds `[7, 17, 27]`, and the configured sensors. These are repeated threshold-specific scores on shared deterministic scenarios, **not 270 independent physical trials**. The pointwise rate is the fraction of post-onset evaluation samples crossing the threshold, averaged across configurations. The crossing percentage is the fraction of configurations with at least one post-onset crossing. Mean delay is averaged only among configurations with a crossing; **for severity 0, this is the timing of false-positive alerts in a negative control, not anomaly-detection delay**.
 
-| Injected severity multiplier | Compensation | Post-onset point detection | Configurations with a post-onset crossing | Missed configurations | Mean delay among detected (samples) |
+| Injected severity multiplier | Compensation | Post-onset point threshold-exceedance rate | Configurations with a post-onset crossing | Configurations without a crossing | Mean delay among configurations with a crossing (samples) |
 |---:|---|---:|---:|---:|---:|
 | 0 (negative control) | Off | 18.33% | 77.78% false-positive rate | 60/270 | 3.10 |
 | 0 (negative control) | On | 11.56% | 60.74% false-positive rate | 106/270 | 4.25 |
@@ -147,7 +147,7 @@ The following aggregates were calculated by executing the default sweep in CI an
 | 2.5 | Off | 98.89% | 100.00% | 0/270 | 0.00 |
 | 2.5 | On | 86.02% | 100.00% | 0/270 | 0.76 |
 
-Across these same scored configurations, mean pre-onset false alarms in the structural-anomaly scenarios were 2.57 per configuration without compensation and 1.96 with compensation. The zero-severity control is especially important: it shows that the current threshold rule can raise an alert when no structural step was injected. Its 77.78% and 60.74% crossing rates are **negative-control false-positive rates**, not anomaly detection success.
+At the default severity multiplier of 2.5, the mean number of pre-onset false alarms was 2.57 per configuration without compensation and 1.96 with compensation. These figures describe the pre-onset interval for scenarios with an injected step; they should not be conflated with the zero-severity control, where the entire evaluation period is negative data. The zero-severity control is especially important: it shows that the current threshold rule can raise an alert when no structural step was injected. Its 77.78% and 60.74% crossing rates are **negative-control false-positive rates**, not anomaly detection success.
 
 **Interpretation:** under this generator, compensation lowers pre-onset false alarms but also reduces post-onset detection and increases average detection delay at each non-zero severity. The gap is most consequential for subtle injected steps. These are synthetic diagnostic results, not estimates of real-bridge sensitivity or field false-alarm rates; the zero-control result also shows that the present threshold-only rule needs further calibration before any safety-related interpretation.
 
