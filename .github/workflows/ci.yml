@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, 'feat/exp07-normalization-sensitivity']
   push:
-    branches: [main]
+    branches: [main, feat/exp07-anomaly-severity-sweep]
   workflow_dispatch:
 
 permissions:
@@ -30,6 +30,18 @@ jobs:
 
       - name: Run automated tests
         run: npm test
+
+      - name: Run EXP-07 multi-seed robustness study
+        run: npm run robustness:exp07 -- --reporter=verbose
+
+      - name: Run EXP-07 persistence robustness study
+        run: npm run persistence:exp07 -- --reporter=verbose
+
+      - name: Run EXP-07 low-severity anomaly stress study
+        run: npm run low-severity:exp07 -- --reporter=verbose
+
+      - name: Run EXP-07 coefficient-error sensitivity study
+        run: npm run coefficient-error:exp07 -- --reporter=verbose
 
       - name: Build production application
         run: npm run build

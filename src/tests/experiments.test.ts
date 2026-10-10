@@ -3,6 +3,7 @@ import { sensors } from '../engineering/sensorConfig';
 import {
 inspectSignalComponents,
 runAnomalyRobustnessExperiment,
+runEnvironmentalAnomalySeveritySweep,
 runEnvironmentalCompensationExperiment,
 runNormalOperationExperiment,
 runPersistenceTradeoffExperiment,
@@ -257,6 +258,19 @@ describe('Experiment 05 — Persistence Trade-off', () => {
       3 * 4 * 3
     );
 
+    for (const item of result.results) {
+      expect(item.detectionDelay).toBe(item.detectionIndex);
+
+      if (item.detectionIndex !== null) {
+        // A persistence alert is timestamped when the final required
+        // consecutive sample arrives, not at the run's first sample.
+        expect(item.detectionIndex).toBeGreaterThanOrEqual(
+          item.persistenceWindow - 1
+        );
+        expect(item.detectionIndex).toBeLessThan(item.evaluationCount);
+      }
+    }
+
     for (const summary of result.summaries) {
       expect(
         summary.falsePositiveRate
@@ -352,6 +366,30 @@ describe(
 );
 
 describe('Experiment 07 — Environmental Compensation', () => {
+test.each([
+  'unsupported',
+  '',
+  'raw-calibration',
+])('rejects unsupported EXP-07 normalization strategy: %s', (strategy) => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12,
+      strategy as never
+    )
+  ).toThrow(
+    'EXP-07 normalization strategy must be pipeline-default, raw-calibration-std, or compensated-calibration-std.'
+  );
+
+  expect(() =>
+    runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7], 10, 12, [0, 1],
+      strategy as never
+    )
+  ).toThrow(
+    'EXP-07 normalization strategy must be pipeline-default, raw-calibration-std, or compensated-calibration-std.'
+  );
+});
+
 test('rejects an empty true temperature coefficient list', () => {
   expect(() =>
     runEnvironmentalCompensationExperiment(
@@ -913,5 +951,392 @@ describe('Temperature compensation calibration isolation', () => {
         { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
       )
     ).toThrow('No synchronized temperature measurement found for timestamp 2.');
+  });
+});
+
+
+describe('EXP-07 anomaly severity sensitivity', () => {
+  test('preserves the original anomaly magnitude by default', () => {
+    const defaults = runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12
+    );
+    const explicitDefault = runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12, 'pipeline-default', 2.5
+    );
+
+    expect(defaults.anomalySeverityMultiplier).toBe(2.5);
+    expect(defaults.results).toEqual(explicitDefault.results);
+  });
+
+  test('runs a deterministic sweep and reports onset-relative detection delay', () => {
+    const run = () => runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7, 17], 10, 12, [0, 0.5, 1, 2.5]
+    );
+    const first = run();
+    const second = run();
+
+    expect(first).toEqual(second);
+    expect(first.experimentId).toBe('EXP-07-SEVERITY-SWEEP');
+    expect(first.results.map((entry) => entry.anomalySeverityMultiplier)).toEqual(
+      [0, 0.5, 1, 2.5]
+    );
+
+    for (const entry of first.results) {
+      expect(entry.results.length).toBeGreaterThan(0);
+      for (const result of entry.results) {
+        expect(result.condition).toBe('structural-anomaly');
+        expect(result.anomalySeverityMultiplier).toBe(
+          entry.anomalySeverityMultiplier
+        );
+        expect(result.anomalyDetected).toBe(result.detectionDelay !== null);
+        expect(result.anomalyInjected).toBe(
+          entry.anomalySeverityMultiplier > 0
+        );
+        expect(result.zeroSeverityFalsePositive).toBe(
+          entry.anomalySeverityMultiplier === 0 && result.anomalyDetected
+        );
+        expect(result.persistenceMetrics.map((metric) => metric.persistenceWindow))
+          .toEqual([1, 2, 3, 5]);
+        expect(result.persistenceMetrics[0]!.detectionDelay)
+          .toBe(result.detectionDelay);
+        for (const metric of result.persistenceMetrics) {
+          expect(metric.falseAlarmEpisodes).toBeGreaterThanOrEqual(0);
+          expect(metric.anomalyDetected).toBe(
+            metric.detectionDelay !== null
+          );
+          if (metric.detectionDelay !== null) {
+            expect(metric.detectionDelay).toBeGreaterThanOrEqual(
+              metric.persistenceWindow - 1
+            );
+          }
+        }
+        if (result.detectionDelay !== null) {
+          expect(result.detectionDelay).toBeGreaterThanOrEqual(0);
+          expect(result.detectionDelay).toBeLessThan(6);
+        }
+      }
+    }
+  });
+
+  test('counts the full evaluation period as false alarms in the zero-severity control', () => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12,
+      'pipeline-default', 0, [1, 2, 3, 5]
+    );
+    const normalResults = experiment.results.filter(
+      (result) => result.condition === 'normal'
+    );
+    const zeroSeverityResults = experiment.results.filter(
+      (result) =>
+        result.condition === 'structural-anomaly' &&
+        result.anomalySeverityMultiplier === 0
+    );
+
+    expect(zeroSeverityResults).toHaveLength(normalResults.length);
+    for (const zeroResult of zeroSeverityResults) {
+      const normalResult = normalResults.find(
+        (result) =>
+          result.sensorId === zeroResult.sensorId &&
+          result.seed === zeroResult.seed &&
+          result.threshold === zeroResult.threshold &&
+          result.trueTemperatureCoefficient ===
+            zeroResult.trueTemperatureCoefficient &&
+          result.assumedTemperatureCoefficient ===
+            zeroResult.assumedTemperatureCoefficient &&
+          result.compensationMode === zeroResult.compensationMode
+      );
+
+      expect(normalResult).toBeDefined();
+      expect(zeroResult.falseAlarms).toBe(normalResult!.falseAlarms);
+      expect(
+        zeroResult.persistenceMetrics.map((metric) => ({
+          persistenceWindow: metric.persistenceWindow,
+          falseAlarmEpisodes: metric.falseAlarmEpisodes
+        }))
+      ).toEqual(
+        normalResult!.persistenceMetrics.map((metric) => ({
+          persistenceWindow: metric.persistenceWindow,
+          falseAlarmEpisodes: metric.falseAlarmEpisodes
+        }))
+      );
+    }
+  });
+
+  test('reproduces the documented severity and persistence aggregates', () => {
+    const configuration = {
+      thresholds: [1.5, 2, 3],
+      trueCoefficients: [4, 8, 12],
+      assumedCoefficients: [0, 4, 8, 12, 16],
+      seeds: [7, 17, 27],
+      calibrationPoints: 30,
+      evaluationPoints: 40
+    };
+    const severityMultipliers = [0, 0.5, 1, 1.5, 2.5];
+    const windows = [1, 2, 3, 5];
+    const sweep = runEnvironmentalAnomalySeveritySweep(
+      configuration.thresholds,
+      configuration.trueCoefficients,
+      configuration.assumedCoefficients,
+      configuration.seeds,
+      configuration.calibrationPoints,
+      configuration.evaluationPoints,
+      severityMultipliers,
+      'pipeline-default',
+      windows
+    );
+    const baseline = runEnvironmentalCompensationExperiment(
+      configuration.thresholds,
+      configuration.trueCoefficients,
+      configuration.assumedCoefficients,
+      configuration.seeds,
+      configuration.calibrationPoints,
+      configuration.evaluationPoints,
+      'pipeline-default',
+      2.5,
+      windows
+    );
+
+    const round2 = (value: number) => Math.round(value * 100) / 100;
+    const average = (values: number[]) =>
+      values.reduce((sum, value) => sum + value, 0) / values.length;
+    const modeName = (mode: string) =>
+      mode === 'without-compensation' ? 'off' : 'on';
+
+    const expectedSeverity = [
+      { severity: 0, mode: 'off', pointRate: 18.33, caseRate: 77.78, misses: 60, delay: 3.10 },
+      { severity: 0, mode: 'on', pointRate: 11.56, caseRate: 60.74, misses: 106, delay: 4.25 },
+      { severity: 0.5, mode: 'off', pointRate: 37.31, caseRate: 96.30, misses: 10, delay: 1.88 },
+      { severity: 0.5, mode: 'on', pointRate: 17.31, caseRate: 66.30, misses: 91, delay: 3.62 },
+      { severity: 1, mode: 'off', pointRate: 61.11, caseRate: 100, misses: 0, delay: 0.76 },
+      { severity: 1, mode: 'on', pointRate: 32.91, caseRate: 82.22, misses: 48, delay: 3.20 },
+      { severity: 1.5, mode: 'off', pointRate: 81.20, caseRate: 100, misses: 0, delay: 0.19 },
+      { severity: 1.5, mode: 'on', pointRate: 52.17, caseRate: 94.07, misses: 16, delay: 2.44 },
+      { severity: 2.5, mode: 'off', pointRate: 98.89, caseRate: 100, misses: 0, delay: 0 },
+      { severity: 2.5, mode: 'on', pointRate: 86.02, caseRate: 100, misses: 0, delay: 0.76 }
+    ];
+
+    for (const expected of expectedSeverity) {
+      const entry = sweep.results.find(
+        (item) => item.anomalySeverityMultiplier === expected.severity
+      )!;
+      const selected = entry.results.filter(
+        (result) => modeName(result.compensationMode) === expected.mode
+      );
+      const detected = selected.filter((result) => result.detectionDelay !== null);
+      expect(selected).toHaveLength(270);
+      expect(round2(average(selected.map((result) => result.detectionRate)) * 100))
+        .toBe(expected.pointRate);
+      expect(round2(detected.length / selected.length * 100))
+        .toBe(expected.caseRate);
+      expect(selected.length - detected.length).toBe(expected.misses);
+      expect(round2(average(detected.map((result) => result.detectionDelay!))))
+        .toBe(expected.delay);
+    }
+
+    const expectedPersistence = [
+      { window: 1, mode: 'off', rate: 99.07, misses: 10, delay: 0.70, falseEpisodes: 2.28 },
+      { window: 2, mode: 'off', rate: 95.37, misses: 50, delay: 2.21, falseEpisodes: 1.35 },
+      { window: 3, mode: 'off', rate: 93.06, misses: 75, delay: 3.21, falseEpisodes: 0.80 },
+      { window: 5, mode: 'off', rate: 86.11, misses: 150, delay: 5.49, falseEpisodes: 0.43 },
+      { window: 1, mode: 'on', rate: 85.65, misses: 155, delay: 2.36, falseEpisodes: 2.09 },
+      { window: 2, mode: 'on', rate: 75.09, misses: 269, delay: 4.04, falseEpisodes: 0.87 },
+      { window: 3, mode: 'on', rate: 69.72, misses: 327, delay: 4.79, falseEpisodes: 0.51 },
+      { window: 5, mode: 'on', rate: 59.17, misses: 441, delay: 6.60, falseEpisodes: 0.19 }
+    ];
+
+    for (const expected of expectedPersistence) {
+      const allNonzero = sweep.results
+        .filter((entry) => entry.anomalySeverityMultiplier > 0)
+        .flatMap((entry) => entry.results)
+        .filter((result) => modeName(result.compensationMode) === expected.mode);
+      const selected = allNonzero.map((result) => ({
+        result,
+        metric: result.persistenceMetrics.find(
+          (item) => item.persistenceWindow === expected.window
+        )!
+      }));
+      const detected = selected.filter(({ metric }) => metric.anomalyDetected);
+      const normalResults = baseline.results.filter(
+        (result) =>
+          result.condition === 'normal' &&
+          modeName(result.compensationMode) === expected.mode
+      );
+      expect(selected).toHaveLength(1080);
+      expect(round2(detected.length / selected.length * 100)).toBe(expected.rate);
+      expect(selected.length - detected.length).toBe(expected.misses);
+      expect(round2(average(detected.map(({ metric }) => metric.detectionDelay!))))
+        .toBe(expected.delay);
+      expect(round2(average(normalResults.map((result) =>
+        result.persistenceMetrics.find(
+          (metric) => metric.persistenceWindow === expected.window
+        )!.falseAlarmEpisodes
+      )))).toBe(expected.falseEpisodes);
+    }
+
+    const expectedZeroSeverityFalsePositiveRates = [
+      { window: 1, off: 77.78, on: 60.74 },
+      { window: 2, off: 51.85, on: 32.59 },
+      { window: 3, off: 44.44, on: 25.19 },
+      { window: 5, off: 24.07, on: 11.48 }
+    ];
+    const zeroControl = sweep.results.find(
+      (entry) => entry.anomalySeverityMultiplier === 0
+    )!;
+    for (const expected of expectedZeroSeverityFalsePositiveRates) {
+      for (const mode of ['off', 'on'] as const) {
+        const selected = zeroControl.results.filter(
+          (result) => modeName(result.compensationMode) === mode
+        );
+        const detections = selected.filter((result) =>
+          result.persistenceMetrics.find(
+            (metric) => metric.persistenceWindow === expected.window
+          )!.anomalyDetected
+        ).length;
+        expect(round2(detections / selected.length * 100)).toBe(expected[mode]);
+      }
+    }
+  });
+
+  test('persistence windows reduce alerts from short threshold excursions', () => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      [1.5], [8], [8], [7], 10, 12, 'pipeline-default', 1
+    );
+    const normalResults = experiment.results.filter(
+      (result) => result.condition === 'normal'
+    );
+
+    expect(normalResults.length).toBeGreaterThan(0);
+    for (const result of normalResults) {
+      const metrics = result.persistenceMetrics;
+      expect(metrics.map((metric) => metric.persistenceWindow)).toEqual([
+        1, 2, 3, 5
+      ]);
+      expect(metrics[0]!.falseAlarmEpisodes).toBeGreaterThanOrEqual(
+        metrics[1]!.falseAlarmEpisodes
+      );
+      expect(metrics[1]!.falseAlarmEpisodes).toBeGreaterThanOrEqual(
+        metrics[2]!.falseAlarmEpisodes
+      );
+      expect(metrics[2]!.falseAlarmEpisodes).toBeGreaterThanOrEqual(
+        metrics[3]!.falseAlarmEpisodes
+      );
+    }
+  });
+
+  test('windows longer than evaluation data cannot trigger persistence alerts', () => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      [1.5], [8], [8], [7], 10, 3,
+      'pipeline-default', 1, [3, 4]
+    );
+
+    expect(experiment.persistenceWindows).toEqual([3, 4]);
+
+    for (const result of experiment.results) {
+      for (const metric of result.persistenceMetrics) {
+        expect(metric.falseAlarmEpisodes).toBeLessThanOrEqual(1);
+        if (metric.persistenceWindow > result.evaluationPoints) {
+          expect(metric.falseAlarmEpisodes).toBe(0);
+          expect(metric.anomalyDetected).toBe(false);
+          expect(metric.detectionDelay).toBeNull();
+        }
+      }
+    }
+  });
+
+  test.each([1, 3, 5])(
+    'keeps onset-relative delays valid for short or odd evaluation lengths (%i points)',
+    (evaluationPoints) => {
+      const windows = [1, 2, 3, 5, 6];
+      const experiment = runEnvironmentalCompensationExperiment(
+        [0.01], [8], [8], [7], 10, evaluationPoints,
+        'pipeline-default', 2.5, windows
+      );
+      const anomalyResults = experiment.results.filter(
+        (result) => result.condition === 'structural-anomaly'
+      );
+
+      expect(anomalyResults.length).toBeGreaterThan(0);
+      for (const result of anomalyResults) {
+        // The injected step starts at floor(evaluationPoints / 2), so the
+        // post-onset segment is the ceiling half of the evaluation series.
+        const postOnsetLength = evaluationPoints -
+          Math.floor(evaluationPoints / 2);
+
+        if (result.detectionDelay !== null) {
+          expect(result.detectionDelay).toBeGreaterThanOrEqual(0);
+          expect(result.detectionDelay).toBeLessThan(postOnsetLength);
+        }
+        if (evaluationPoints === 1 && result.detectionDelay !== null) {
+          expect(result.detectionDelay).toBe(0);
+        }
+
+        for (const metric of result.persistenceMetrics) {
+          if (metric.detectionDelay !== null) {
+            expect(metric.detectionDelay).toBeGreaterThanOrEqual(
+              metric.persistenceWindow - 1
+            );
+            expect(metric.detectionDelay).toBeLessThan(postOnsetLength);
+          }
+          if (metric.persistenceWindow > postOnsetLength) {
+            expect(metric.anomalyDetected).toBe(false);
+            expect(metric.detectionDelay).toBeNull();
+          }
+        }
+      }
+    }
+  );
+
+  test('accepts validated custom persistence windows', () => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      [1.5], [8], [8], [7], 10, 12,
+      'pipeline-default', 1, [2, 4]
+    );
+
+    expect(experiment.persistenceWindows).toEqual([2, 4]);
+    for (const result of experiment.results) {
+      expect(
+        result.persistenceMetrics.map((metric) => metric.persistenceWindow)
+      ).toEqual([2, 4]);
+    }
+
+    const sweep = runEnvironmentalAnomalySeveritySweep(
+      [1.5], [8], [8], [7], 10, 12, [0, 1],
+      'pipeline-default', [2, 4]
+    );
+    expect(sweep.persistenceWindows).toEqual([2, 4]);
+    for (const entry of sweep.results) {
+      for (const result of entry.results) {
+        expect(
+          result.persistenceMetrics.map((metric) => metric.persistenceWindow)
+        ).toEqual([2, 4]);
+      }
+    }
+  });
+
+  test.each([
+    { windows: [] },
+    { windows: [0] },
+    { windows: [-1] },
+    { windows: [1.5] },
+    { windows: [2, 2] }
+  ])('rejects invalid persistence windows: $windows', ({ windows }) => {
+    expect(() => runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12,
+      'pipeline-default', 1, windows
+    )).toThrow(
+      'EXP-07 persistence windows must be a non-empty list of unique positive integers.'
+    );
+  });
+
+  test('rejects empty, negative, and non-finite severity sweeps', () => {
+    expect(() => runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7], 10, 12, []
+    )).toThrow('EXP-07 severity sweep requires finite severity multipliers');
+    expect(() => runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7], 10, 12, [-0.5]
+    )).toThrow('EXP-07 severity sweep requires finite severity multipliers');
+    expect(() => runEnvironmentalAnomalySeveritySweep(
+      [2], [8], [8], [7], 10, 12, [Number.NaN]
+    )).toThrow('EXP-07 severity sweep requires finite severity multipliers');
   });
 });

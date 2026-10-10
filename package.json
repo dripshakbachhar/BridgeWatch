@@ -8,7 +8,13 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "export:exp07": "vitest run scripts/export-exp07-report.test.ts",
+    "robustness:exp07": "vitest run scripts/exp07-robustness.test.ts",
+    "persistence:exp07": "vitest run scripts/exp07-persistence.test.ts",
+    "low-severity:exp07": "vitest run scripts/exp07-low-severity.test.ts",
+    "coefficient-error:exp07": "vitest run scripts/exp07-coefficient-error.test.ts",
+    "coefficient-error:exp07": "vitest run scripts/exp07-coefficient-error.test.ts"
   },
   "dependencies": {
     "react": "19.3.0",
