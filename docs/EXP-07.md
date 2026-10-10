@@ -453,4 +453,31 @@ The command writes `reports/exp07/coefficient-error-sensitivity.csv` and emits s
 
 ### 14.1 Observed results
 
-Numerical findings will be recorded after the stratified experiment completes successfully in CI. The prior pooled signed-error summary was removed because grouping different true coefficients together could confound the comparison.
+The stratified experiment passed CI, including the automated test suite, coefficient-error study, and production build. The table below isolates true coefficient 8, so signed-error comparisons do not mix different true-coefficient settings. Each row summarizes the available threshold/sensor configurations over ten seeds; delay is conditional on detection.
+
+| Severity | Signed error | Mode | Window | Detection / negative-control alert rate | False-alarm episodes/config | Mean delay (detected cases only) |
+|---:|---:|---|---:|---:|---:|---:|
+| 0 | Baseline | Off | 1 | 68.33% alert rate | 2.133 | 3.58 |
+| 0 | -4 | On | 1 | 46.67% alert rate | 1.517 | 5.72 |
+| 0 | 0 | On | 1 | 30.00% alert rate | 1.000 | 6.63 |
+| 0 | +4 | On | 1 | 56.67% alert rate | 1.650 | 5.33 |
+| 0.5 | Baseline | Off | 1 | 91.67% | 0.967 | 1.66 |
+| 0.5 | -4 | On | 1 | 75.00% | 0.767 | 3.94 |
+| 0.5 | 0 | On | 1 | 60.00% | 0.483 | 7.08 |
+| 0.5 | +4 | On | 1 | 36.67% | 0.750 | 9.69 |
+| 0.5 | Baseline | Off | 5 | 65.00% | 0.200 | 7.61 |
+| 0.5 | -4 | On | 5 | 36.67% | 0.017 | 8.57 |
+| 0.5 | 0 | On | 5 | 8.33% | 0.000 | 11.17 |
+| 0.5 | +4 | On | 5 | 1.67% | 0.017 | 18.00 |
+| 1.0 | Baseline | Off | 1 | 100.00% | 0.967 | 0.75 |
+| 1.0 | -4 | On | 1 | 98.33% | 0.767 | 2.03 |
+| 1.0 | 0 | On | 1 | 83.33% | 0.483 | 4.11 |
+| 1.0 | +4 | On | 1 | 66.67% | 0.750 | 7.08 |
+| 1.0 | Baseline | Off | 5 | 90.00% | 0.200 | 6.80 |
+| 1.0 | -4 | On | 5 | 70.00% | 0.017 | 7.62 |
+| 1.0 | 0 | On | 5 | 55.00% | 0.000 | 10.13 |
+| 1.0 | +4 | On | 5 | 26.67% | 0.017 | 14.58 |
+
+**Interpretation:** in this particular synthetic setting, the direction of coefficient error matters: at severity 1.0 and a one-sample window, the +4 group detected 66.67% of cases versus 98.33% for -4. With a five-sample window, detection fell further in all compared groups as pre-onset false-alarm episodes declined. For severity zero, the reported percentage is a false-alert rate, not anomaly detection. The baseline and compensation-on groups are stratified by true coefficient, but they are still synthetic configuration aggregates, not independent physical trials.
+
+Do not conclude that underestimation is generally safer or choose defaults from this one slice. The result is sensitive to the synthetic generator, threshold/sensor mix, and persistence window. The full CSV includes all true coefficients, available signed errors, severities, windows, and descriptive across-seed variability.
