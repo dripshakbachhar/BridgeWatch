@@ -188,8 +188,7 @@ function severitySummary(sweep: EnvironmentalAnomalySeveritySweep): string {
 
 function persistenceSummary(
   baseline: EnvironmentalCompensationExperiment,
-  sweep: EnvironmentalAnomalySeveritySweep,
-  normalizationRuns: EnvironmentalCompensationExperiment[]
+  sweep: EnvironmentalAnomalySeveritySweep
 ): string {
   const rows: CsvCell[][] = [];
   const modes: EnvironmentalCompensationExperimentResult['compensationMode'][] = [
