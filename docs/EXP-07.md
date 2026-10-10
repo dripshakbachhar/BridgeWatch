@@ -436,3 +436,17 @@ The low-severity study completed successfully in CI. Each percentage below is th
 **Interpretation:** the weak 0.25 step is difficult even without compensation, and compensation plus longer persistence can nearly eliminate qualifying detections in matched cases while reducing pre-onset false-alarm episodes. At severity 1.0, the same trade-off remains substantial: with matched coefficients and a five-sample window, case detection averages 86.11% off versus 55.00% on. Under mismatch, compensation is less effective at suppressing pre-onset episodes and has more misses. A mean delay can look deceptively modest when many cases are missed, so detection rate and misses must be read alongside delay.
 
 These outcomes support a sensitivity finding, not a universal recommendation against compensation or for a particular persistence window. No defaults were changed. The CSV and CI JSON contain all four tested severities (including 0.5 and 0.75), all windows, both coefficient-match groups, both modes, and descriptive across-seed variability. The study remains limited to correlated synthetic configurations; it does not establish real-bridge performance.
+
+## 14. Temperature-coefficient calibration-error sensitivity
+
+This study groups the existing coefficient grid by signed error, defined as assumed coefficient minus synthetic true coefficient. Signed errors are -12, -8, -4, 0, +4, +8, and +12, allowing underestimation and overestimation to be compared separately rather than collapsing every non-match into one group. It evaluates severity 0 as a negative control and injected steps of 0.5 and 1.0 across seeds 101–110, thresholds 1.5/2/3, compensation off/on, and persistence windows 1/2/3/5. The existing synthetic generator, processing implementation, and detector defaults are unchanged.
+
+Run locally:
+
+```powershell
+npm run coefficient-error:exp07
+```
+
+The command writes `reports/exp07/coefficient-error-sensitivity.csv` and emits seed-level and across-seed JSON summaries between explicit markers in CI logs. Outcomes include pre-onset false-alarm episodes per configuration, persistence case-detection rate, detected-case-only delay, and missed cases. At severity zero, a qualifying post-onset alert is a negative-control false alert, not a successful anomaly detection. The signed coefficient error is in the generator's coefficient units; it is not a percentage calibration error.
+
+Each seed-level group combines configurations from the existing threshold/sensor/coefficient grid, which share synthetic model structure and should not be treated as independent physical trials. Across-seed standard deviations and ranges are descriptive rather than confidence intervals. Results can reveal directional asymmetry between under- and over-compensation, but cannot establish field performance or justify changing defaults without additional validation. Measured findings will be added after the CI experiment completes.
