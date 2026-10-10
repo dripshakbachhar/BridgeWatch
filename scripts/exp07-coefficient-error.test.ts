@@ -20,8 +20,8 @@ interface Row {
   statistic: Statistic;
   seed: number;
   severity: number;
-  signedCoefficientError: number;
-  absoluteCoefficientError: number;
+  signedCoefficientError: number | null;
+  absoluteCoefficientError: number | null;
   mode: Mode;
   persistenceWindow: number;
   cases: number;
@@ -69,13 +69,16 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
           THRESHOLDS, TRUE_COEFFICIENTS, ASSUMED_COEFFICIENTS, [seed],
           CALIBRATION_POINTS, EVALUATION_POINTS, 'pipeline-default', severity, [...WINDOWS]
         );
-        for (const signedError of SIGNED_ERRORS) {
-          for (const mode of ['off', 'on'] as const) {
+        for (const mode of ['off', 'on'] as const) {
+          const errorGroups: Array<number | null> = mode === 'off' ? [null] : SIGNED_ERRORS;
+          for (const signedError of errorGroups) {
             for (const persistenceWindow of WINDOWS) {
               const group = run.results.filter(result =>
                 result.condition === 'structural-anomaly' &&
                 result.compensationMode === (mode === 'on' ? 'with-compensation' : 'without-compensation') &&
-                result.assumedTemperatureCoefficient - result.trueTemperatureCoefficient === signedError
+                (mode === 'off'
+                  ? result.assumedTemperatureCoefficient === 0
+                  : result.assumedTemperatureCoefficient - result.trueTemperatureCoefficient === signedError)
               );
               // The selected coefficient grid has at least one configuration for each signed error.
               const metrics = group.map(result =>
@@ -85,7 +88,7 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
               const delays = metrics.map(metric => metric.detectionDelay).filter((v): v is number => v !== null);
               perSeedRows.push({
                 statistic: 'seed', seed, severity, signedCoefficientError: signedError,
-                absoluteCoefficientError: Math.abs(signedError), mode, persistenceWindow,
+                absoluteCoefficientError: signedError === null ? null : Math.abs(signedError), mode, persistenceWindow,
                 cases: group.length,
                 falseAlarmEpisodesPerCase: mean(metrics.map(metric => metric.falseAlarmEpisodes)),
                 detectedCases: detected,
@@ -110,7 +113,7 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
     ];
     const groups = new Map<string, Row[]>();
     for (const row of perSeedRows) {
-      const key = [row.severity, row.signedCoefficientError, row.mode, row.persistenceWindow].join('|');
+      const key = [row.severity, row.signedCoefficientError ?? 'baseline', row.mode, row.persistenceWindow].join('|');
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
     for (const group of groups.values()) {
@@ -127,9 +130,9 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
     }
 
     const allRows = [...perSeedRows, ...summaryRows];
-    expect(perSeedRows).toHaveLength(1680);
-    expect(summaryRows).toHaveLength(672);
-    expect(allRows).toHaveLength(2352);
+    expect(perSeedRows).toHaveLength(960);
+    expect(summaryRows).toHaveLength(384);
+    expect(allRows).toHaveLength(1344);
     expect(perSeedRows.every(row => row.cases > 0)).toBe(true);
     expect(perSeedRows.every(row => row.detectionRatePct >= 0 && row.detectionRatePct <= 100)).toBe(true);
 
