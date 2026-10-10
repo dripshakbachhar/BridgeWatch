@@ -994,6 +994,141 @@ describe('EXP-07 anomaly severity sensitivity', () => {
     }
   });
 
+  test('reproduces the documented severity and persistence aggregates', () => {
+    const configuration = {
+      thresholds: [1.5, 2, 3],
+      trueCoefficients: [4, 8, 12],
+      assumedCoefficients: [0, 4, 8, 12, 16],
+      seeds: [7, 17, 27],
+      calibrationPoints: 30,
+      evaluationPoints: 40
+    };
+    const severityMultipliers = [0, 0.5, 1, 1.5, 2.5];
+    const windows = [1, 2, 3, 5];
+    const sweep = runEnvironmentalAnomalySeveritySweep(
+      configuration.thresholds,
+      configuration.trueCoefficients,
+      configuration.assumedCoefficients,
+      configuration.seeds,
+      configuration.calibrationPoints,
+      configuration.evaluationPoints,
+      severityMultipliers,
+      'pipeline-default',
+      windows
+    );
+    const baseline = runEnvironmentalCompensationExperiment(
+      configuration.thresholds,
+      configuration.trueCoefficients,
+      configuration.assumedCoefficients,
+      configuration.seeds,
+      configuration.calibrationPoints,
+      configuration.evaluationPoints,
+      'pipeline-default',
+      2.5,
+      windows
+    );
+
+    const round2 = (value: number) => Math.round(value * 100) / 100;
+    const average = (values: number[]) =>
+      values.reduce((sum, value) => sum + value, 0) / values.length;
+    const modeName = (mode: string) =>
+      mode === 'without-compensation' ? 'off' : 'on';
+
+    const expectedSeverity = [
+      { severity: 0, mode: 'off', pointRate: 18.33, caseRate: 77.78, misses: 60, delay: 3.10 },
+      { severity: 0, mode: 'on', pointRate: 11.56, caseRate: 60.74, misses: 106, delay: 4.25 },
+      { severity: 0.5, mode: 'off', pointRate: 37.31, caseRate: 96.30, misses: 10, delay: 1.88 },
+      { severity: 0.5, mode: 'on', pointRate: 17.31, caseRate: 66.30, misses: 91, delay: 3.62 },
+      { severity: 1, mode: 'off', pointRate: 61.11, caseRate: 100, misses: 0, delay: 0.76 },
+      { severity: 1, mode: 'on', pointRate: 32.91, caseRate: 82.22, misses: 48, delay: 3.20 },
+      { severity: 1.5, mode: 'off', pointRate: 81.20, caseRate: 100, misses: 0, delay: 0.19 },
+      { severity: 1.5, mode: 'on', pointRate: 52.17, caseRate: 94.07, misses: 16, delay: 2.44 },
+      { severity: 2.5, mode: 'off', pointRate: 98.89, caseRate: 100, misses: 0, delay: 0 },
+      { severity: 2.5, mode: 'on', pointRate: 86.02, caseRate: 100, misses: 0, delay: 0.76 }
+    ];
+
+    for (const expected of expectedSeverity) {
+      const entry = sweep.results.find(
+        (item) => item.anomalySeverityMultiplier === expected.severity
+      )!;
+      const selected = entry.results.filter(
+        (result) => modeName(result.compensationMode) === expected.mode
+      );
+      const detected = selected.filter((result) => result.detectionDelay !== null);
+      expect(selected).toHaveLength(270);
+      expect(round2(average(selected.map((result) => result.detectionRate)) * 100))
+        .toBe(expected.pointRate);
+      expect(round2(detected.length / selected.length * 100))
+        .toBe(expected.caseRate);
+      expect(selected.length - detected.length).toBe(expected.misses);
+      expect(round2(average(detected.map((result) => result.detectionDelay!))))
+        .toBe(expected.delay);
+    }
+
+    const expectedPersistence = [
+      { window: 1, mode: 'off', rate: 99.07, misses: 10, delay: 0.70, falseEpisodes: 2.28 },
+      { window: 2, mode: 'off', rate: 95.37, misses: 50, delay: 2.21, falseEpisodes: 1.35 },
+      { window: 3, mode: 'off', rate: 93.06, misses: 75, delay: 3.21, falseEpisodes: 0.80 },
+      { window: 5, mode: 'off', rate: 86.11, misses: 150, delay: 5.49, falseEpisodes: 0.43 },
+      { window: 1, mode: 'on', rate: 85.65, misses: 155, delay: 2.36, falseEpisodes: 2.09 },
+      { window: 2, mode: 'on', rate: 75.09, misses: 269, delay: 4.04, falseEpisodes: 0.87 },
+      { window: 3, mode: 'on', rate: 69.72, misses: 327, delay: 4.79, falseEpisodes: 0.51 },
+      { window: 5, mode: 'on', rate: 59.17, misses: 441, delay: 6.60, falseEpisodes: 0.19 }
+    ];
+
+    for (const expected of expectedPersistence) {
+      const allNonzero = sweep.results
+        .filter((entry) => entry.anomalySeverityMultiplier > 0)
+        .flatMap((entry) => entry.results)
+        .filter((result) => modeName(result.compensationMode) === expected.mode);
+      const selected = allNonzero.map((result) => ({
+        result,
+        metric: result.persistenceMetrics.find(
+          (item) => item.persistenceWindow === expected.window
+        )!
+      }));
+      const detected = selected.filter(({ metric }) => metric.anomalyDetected);
+      const normalResults = baseline.results.filter(
+        (result) =>
+          result.condition === 'normal' &&
+          modeName(result.compensationMode) === expected.mode
+      );
+      expect(selected).toHaveLength(1080);
+      expect(round2(detected.length / selected.length * 100)).toBe(expected.rate);
+      expect(selected.length - detected.length).toBe(expected.misses);
+      expect(round2(average(detected.map(({ metric }) => metric.detectionDelay!))))
+        .toBe(expected.delay);
+      expect(round2(average(normalResults.map((result) =>
+        result.persistenceMetrics.find(
+          (metric) => metric.persistenceWindow === expected.window
+        )!.falseAlarmEpisodes
+      )))).toBe(expected.falseEpisodes);
+    }
+
+    const expectedZeroSeverityFalsePositiveRates = [
+      { window: 1, off: 77.78, on: 60.74 },
+      { window: 2, off: 51.85, on: 32.59 },
+      { window: 3, off: 44.44, on: 25.19 },
+      { window: 5, off: 24.07, on: 11.48 }
+    ];
+    const zeroControl = sweep.results.find(
+      (entry) => entry.anomalySeverityMultiplier === 0
+    )!;
+    for (const expected of expectedZeroSeverityFalsePositiveRates) {
+      for (const mode of ['off', 'on'] as const) {
+        const selected = zeroControl.results.filter(
+          (result) => modeName(result.compensationMode) === mode
+        );
+        const detections = selected.filter((result) =>
+          result.persistenceMetrics.find(
+            (metric) => metric.persistenceWindow === expected.window
+          )!.anomalyDetected
+        ).length;
+        expect(round2(detections / selected.length * 100)).toBe(expected[mode]);
+      }
+    }
+  });
+
   test('persistence windows reduce alerts from short threshold excursions', () => {
     const experiment = runEnvironmentalCompensationExperiment(
       [1.5], [8], [8], [7], 10, 12, 'pipeline-default', 1
