@@ -47,6 +47,10 @@ EXP-07 now also accepts an optional final `normalizationStrategy` argument:
 
 For sensitivity comparisons, run the same configuration and seed list with each explicit scale strategy. The synthetic series are deterministic, so these runs use the same underlying cases while changing the normalization scale. This is a controlled sensitivity check, not proof that either scale is universally preferable. Evaluation samples and injected anomaly samples must not be used to estimate either calibration scale.
 
+The calibration reference is centered consistently in both calculations: the baseline value is the mean of calibration measurements, and the reference temperature is the mean of calibration temperatures. The compensated calibration residual is each calibration reading minus the baseline mean adjusted by the assumed coefficient times the temperature difference from that reference. Evaluation uses the same baseline and reference-temperature convention. The synthetic series uses 20 as its generating reference temperature; using the calibration mean as the compensation reference recenters the intercept rather than changing the temperature slope. The assumed coefficient is supplied explicitly; the helper's optional coefficient-estimation path is not used for EXP-07 scoring.
+
+**Score-field distinction:** EXP-07's `latestAdjustedZScore` is the final residual divided by the selected EXP-07 normalization scale. It is not the `adjustedZScore` field returned by `compensateForTemperature`, which divides by `sensor.baselineStd`. The helper's field is not used to calculate EXP-07's threshold decisions. This distinction matters when comparing normalization strategies.
+
 ## 5. Results
 
 The following are aggregate results from the synthetic diagnostic run.
