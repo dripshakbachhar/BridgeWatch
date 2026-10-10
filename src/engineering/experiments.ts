@@ -174,6 +174,10 @@ export interface EnvironmentalCompensationExperimentResult {
     | 'raw-calibration-std'
     | 'compensated-calibration-std';
   anomalySeverityMultiplier: number;
+  /** True only when a non-zero synthetic structural step was injected. */
+  anomalyInjected: boolean;
+  /** Threshold crossing in the zero-severity negative control. */
+  zeroSeverityFalsePositive: boolean;
   detectionDelay: number | null;
 }
 
@@ -1641,6 +1645,12 @@ function evaluateEnvironmentalSeries(
         : 0,
     normalizationStrategy,
     anomalySeverityMultiplier,
+    anomalyInjected:
+      condition === 'structural-anomaly' && anomalySeverityMultiplier > 0,
+    zeroSeverityFalsePositive:
+      condition === 'structural-anomaly' &&
+      anomalySeverityMultiplier === 0 &&
+      anomalyDetected,
     detectionDelay
   };
 }
