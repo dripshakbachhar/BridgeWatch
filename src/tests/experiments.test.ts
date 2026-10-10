@@ -958,11 +958,52 @@ describe('EXP-07 anomaly severity sensitivity', () => {
         expect(result.zeroSeverityFalsePositive).toBe(
           entry.anomalySeverityMultiplier === 0 && result.anomalyDetected
         );
+        expect(result.persistenceMetrics.map((metric) => metric.persistenceWindow))
+          .toEqual([1, 2, 3, 5]);
+        expect(result.persistenceMetrics[0]!.detectionDelay)
+          .toBe(result.detectionDelay);
+        for (const metric of result.persistenceMetrics) {
+          expect(metric.falseAlarmEpisodes).toBeGreaterThanOrEqual(0);
+          expect(metric.anomalyDetected).toBe(
+            metric.detectionDelay !== null
+          );
+          if (metric.detectionDelay !== null) {
+            expect(metric.detectionDelay).toBeGreaterThanOrEqual(
+              metric.persistenceWindow - 1
+            );
+          }
+        }
         if (result.detectionDelay !== null) {
           expect(result.detectionDelay).toBeGreaterThanOrEqual(0);
           expect(result.detectionDelay).toBeLessThan(6);
         }
       }
+    }
+  });
+
+  test('persistence windows reduce alerts from short threshold excursions', () => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      [1.5], [8], [8], [7], 10, 12, 'pipeline-default', 1
+    );
+    const normalResults = experiment.results.filter(
+      (result) => result.condition === 'normal'
+    );
+
+    expect(normalResults.length).toBeGreaterThan(0);
+    for (const result of normalResults) {
+      const metrics = result.persistenceMetrics;
+      expect(metrics.map((metric) => metric.persistenceWindow)).toEqual([
+        1, 2, 3, 5
+      ]);
+      expect(metrics[0]!.falseAlarmEpisodes).toBeGreaterThanOrEqual(
+        metrics[1]!.falseAlarmEpisodes
+      );
+      expect(metrics[1]!.falseAlarmEpisodes).toBeGreaterThanOrEqual(
+        metrics[2]!.falseAlarmEpisodes
+      );
+      expect(metrics[2]!.falseAlarmEpisodes).toBeGreaterThanOrEqual(
+        metrics[3]!.falseAlarmEpisodes
+      );
     }
   });
 
