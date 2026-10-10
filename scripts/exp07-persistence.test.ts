@@ -153,9 +153,9 @@ describe('EXP-07 persistence-window robustness study', () => {
 
     const summaryRows = summariseAcrossSeeds(perSeedRows);
     const allRows = [...perSeedRows, ...summaryRows];
-    expect(perSeedRows).toHaveLength(240);
-    expect(summaryRows).toHaveLength(288);
-    expect(allRows).toHaveLength(528);
+    expect(perSeedRows).toHaveLength(480);
+    expect(summaryRows).toHaveLength(192);
+    expect(allRows).toHaveLength(672);
     expect(perSeedRows.some(row => row.scenario === 'injected-step' && row.persistenceWindow === 5)).toBe(true);
 
     const outputDirectory = resolve(process.cwd(), 'reports', 'exp07');
