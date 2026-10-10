@@ -114,7 +114,9 @@ const sweep = runEnvironmentalAnomalySeveritySweep(
   [7, 17, 27],
   30,
   40,
-  [0, 0.5, 1, 1.5, 2.5]
+  [0, 0.5, 1, 1.5, 2.5],
+  'pipeline-default',
+  [1, 2, 3, 5]
 );
 ```
 
@@ -145,7 +147,7 @@ The sweep tests whether detection behavior changes as the injected step becomes 
 
 ### 5.3 Persistence-based alert sensitivity
 
-The evaluator now also records a persistence-based alert metric for windows of **1, 2, 3, and 5 consecutive evaluation samples**. The existing single-sample metrics remain unchanged. For each window, an alert is recorded only after the required consecutive samples meet or exceed the same absolute z-score threshold. Detection delay is measured at the sample where the persistence requirement is fulfilled. False-alarm episodes count contiguous qualifying runs in normal data (or only the pre-onset segment in anomaly scenarios), rather than counting every above-threshold sample as a separate event.
+The evaluator now also records a persistence-based alert metric for windows of **1, 2, 3, and 5 consecutive evaluation samples by default**. The existing single-sample metrics remain unchanged. Both `runEnvironmentalCompensationExperiment` and `runEnvironmentalAnomalySeveritySweep` accept an optional final `persistenceWindows` argument, so callers can evaluate a custom list without changing detector internals. The list must contain at least one unique positive integer; empty lists, zero/negative values, fractional values, and duplicates are rejected. For each window, an alert is recorded only after the required consecutive samples meet or exceed the same absolute z-score threshold. Detection delay is measured at the sample where the persistence requirement is fulfilled. False-alarm episodes count contiguous qualifying runs in normal data (or only the pre-onset segment in anomaly scenarios), rather than counting every above-threshold sample as a separate event.
 
 The following aggregate was executed in CI using the same default EXP-07 grid. Detection results pool the four non-zero severity settings (0.5, 1, 1.5, 2.5), giving **1,080 threshold-specific configurations per compensation mode and window**. These are correlated configurations sharing deterministic scenarios, not independent field trials. Mean delay is computed only for detected cases.
 
