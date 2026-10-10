@@ -857,9 +857,9 @@ for (const expected of expectedCases) {
 
 describe('Temperature compensation calibration isolation', () => {
   const makeMeasurements = (latestValue: number) => [
-    { timestamp: 0, sensorId: sensors[0].id, value: 10 },
-    { timestamp: 1, sensorId: sensors[0].id, value: 12 },
-    { timestamp: 2, sensorId: sensors[0].id, value: latestValue }
+    { timestamp: 0, sensorId: sensors[0]!.id, value: 10 },
+    { timestamp: 1, sensorId: sensors[0]!.id, value: 12 },
+    { timestamp: 2, sensorId: sensors[0]!.id, value: latestValue }
   ];
 
   const temperatures = [
@@ -870,7 +870,7 @@ describe('Temperature compensation calibration isolation', () => {
 
   test('uses the explicit assumed coefficient and calibration-only reference values', () => {
     const result = compensateForTemperature(
-      sensors[0],
+      sensors[0]!,
       makeMeasurements(20),
       temperatures,
       { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
@@ -885,13 +885,13 @@ describe('Temperature compensation calibration isolation', () => {
 
   test('changing an evaluation reading cannot change the calibration baseline or reference temperature', () => {
     const first = compensateForTemperature(
-      sensors[0],
+      sensors[0]!,
       makeMeasurements(20),
       temperatures,
       { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
     );
     const changedEvaluation = compensateForTemperature(
-      sensors[0],
+      sensors[0]!,
       makeMeasurements(100),
       temperatures,
       { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
@@ -907,7 +907,7 @@ describe('Temperature compensation calibration isolation', () => {
   test('rejects a missing temperature reading for the latest measurement timestamp', () => {
     expect(() =>
       compensateForTemperature(
-        sensors[0],
+        sensors[0]!,
         makeMeasurements(20),
         temperatures.slice(0, 2),
         { calibrationPoints: 2, assumedTemperatureCoefficient: 3 }
