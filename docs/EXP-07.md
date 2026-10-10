@@ -349,3 +349,49 @@ For injected steps, compensation lowers the post-onset pointwise threshold-excee
 The zero-severity negative control shows that a crossing can occur without any injected step. With matched coefficients, compensation reduces the negative-control case crossing rate in all ten seeds, but its mean remains 30.00%—too high to treat the present threshold rule as field-ready. Under mismatch, the average reduction is small and two seeds show an increase. The negative-control result is an important limit on any claim of reliable anomaly identification.
 
 These findings support a qualified conclusion: **the observed matched-coefficient false-alarm reduction and the post-onset exceedance trade-off are stable across the ten tested seeds; performance under coefficient mismatch is less dependable, and the negative control still produces frequent false positives.** This is descriptive robustness to selected random seeds, not statistical confidence, independent replication, or real-bridge validation. The default detector behavior was not changed by this study.
+
+
+## 12. Persistence-window trade-off across ten seeds
+
+The persistence robustness runner evaluates windows 1, 2, 3, and 5 on the same ten additional seeds (101–110), default threshold/coefficient grid, severity-2.5 injected step, and zero-severity negative control. It writes `reports/exp07/persistence-robustness.csv`, including per-seed results and descriptive across-seed mean, sample SD, minimum, and maximum. Run it with:
+
+```powershell
+npm ci
+npm run persistence:exp07
+```
+
+Each reported false-alarm-episode value is the mean number of qualifying episodes per scored configuration, not a field false-alarm probability. Injected-step false-alarm episodes are counted before onset; normal and negative-control episodes use the full evaluation segment. Detection rate is the percentage of configurations with a qualifying persistence detection. Negative-control detection is a false alert because severity is zero. Detection delay is measured when the final required consecutive sample arrives; mean delay is calculated only among detected configurations. Values below aggregate each seed's coefficient/threshold configurations, then average across the ten seeds.
+
+### 12.1 Injected severity-2.5 step: false alarms versus detection
+
+| Coefficient group | Persistence window | False episodes/config: off → on | Detected cases: off → on | Mean detection-rate change | Added misses per seed's group | Paired mean delay change |
+|---|---:|---:|---:|---:|---:|---:|
+| Matched | 1 | 0.994 → 0.483 | 100.00% → 100.00% | 0.00 pp | 0.0 | 0.00 samples |
+| Matched | 2 | 0.589 → 0.150 | 100.00% → 100.00% | 0.00 pp | 0.0 | +0.33 samples |
+| Matched | 3 | 0.317 → 0.033 | 100.00% → 100.00% | 0.00 pp | 0.0 | +0.75 samples |
+| Matched | 5 | 0.222 → 0.000 | 100.00% → 100.00% | 0.00 pp | 0.0 | +0.99 samples |
+| Mismatched | 1 | 0.994 → 0.897 | 100.00% → 100.00% | 0.00 pp | 0.0 | +1.06 samples |
+| Mismatched | 2 | 0.589 → 0.472 | 100.00% → 99.17% | −0.83 pp | +0.6 | +1.58 samples |
+| Mismatched | 3 | 0.317 → 0.254 | 100.00% → 98.61% | −1.39 pp | +1.0 | +1.91 samples |
+| Mismatched | 5 | 0.222 → 0.136 | 100.00% → 96.94% | −3.06 pp | +2.2 | +2.22 samples |
+
+Here “off → on” compares uncompensated and compensated processing with the same persistence window. “Added misses” is the across-seed mean increase in missed configurations per seed's coefficient-match group (18 matched or 72 mismatched configurations). Paired mean delay change averages seed-level delay differences where both modes detected at least one case; it is not calculated for a seed/mode with no detected cases.
+
+For this severity-2.5 step, longer persistence windows reduced pre-onset false-alarm episodes in both processing modes. Compensation further reduced them in every seed for matched coefficients at all four windows. With mismatched coefficients, the reductions were smaller and one seed had more false episodes under compensation at window 3. The sensitivity cost grew with window length: matched cases retained 100% case-level detection in this experiment, but detection arrived later on average; mismatched cases began to incur misses at windows 2–5, with mean detection rate falling to 96.94% at window 5. These results apply to the tested, relatively strong synthetic step, not to all anomaly magnitudes.
+
+### 12.2 Zero-severity negative control: false alerts
+
+The next table reports the percentage of configurations with a qualifying persistence crossing even though **no step was injected**.
+
+| Coefficient group | Window 1 off → on | Window 2 off → on | Window 3 off → on | Window 5 off → on |
+|---|---:|---:|---:|---:|
+| Matched | 67.22% → 30.00% | 53.89% → 15.00% | 41.11% → 1.67% | 26.11% → 0.00% |
+| Mismatched | 67.22% → 63.06% | 53.89% → 47.22% | 41.11% → 33.89% | 26.11% → 19.72% |
+
+In the matched group, compensation lowered negative-control false alerts at every window in all ten seeds. In the mismatched group, the reductions were weaker: at window 1, false-alert frequency fell in seven seeds, was unchanged in one, and increased in two. Window 5 had the lowest negative-control crossing rates, but it also had the largest detection delay and the most missed injected cases under mismatch. A low false-alert rate alone is therefore not enough to select a persistence window.
+
+### 12.3 Interpretation
+
+The evidence does not identify a universally best window. Window 1 is the most responsive but permits more false episodes; windows 3 and 5 suppress more episodes, at the cost of later alerts and, with coefficient mismatch, additional misses. The compensation benefit is clearest when coefficients match. The zero-severity negative control remains particularly problematic under mismatch even with persistence and compensation.
+
+The test deliberately does not change default alert settings or detector behavior. Choosing a production window requires a pre-specified acceptable false-alert burden, tolerable delay, and acceptable missed-event rate, then evaluation on representative independent sensor data with appropriate ground truth. These synthetic results are a trade-off analysis, not evidence of operational safety or real-bridge performance.
