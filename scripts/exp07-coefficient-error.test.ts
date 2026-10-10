@@ -20,6 +20,7 @@ interface Row {
   statistic: Statistic;
   seed: number;
   severity: number;
+  trueTemperatureCoefficient: number;
   signedCoefficientError: number | null;
   absoluteCoefficientError: number | null;
   mode: Mode;
@@ -47,7 +48,7 @@ function csvCell(value: string | number | null): string {
 }
 function toCsv(rows: Row[]): string {
   const headers: (keyof Row)[] = [
-    'statistic', 'seed', 'severity', 'signedCoefficientError', 'absoluteCoefficientError',
+    'statistic', 'seed', 'severity', 'trueTemperatureCoefficient', 'signedCoefficientError', 'absoluteCoefficientError',
     'mode', 'persistenceWindow', 'cases', 'falseAlarmEpisodesPerCase', 'detectedCases',
     'detectionRatePct', 'meanDelayDetectedCasesOnly', 'missedCases'
   ];
@@ -69,12 +70,16 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
           THRESHOLDS, TRUE_COEFFICIENTS, ASSUMED_COEFFICIENTS, [seed],
           CALIBRATION_POINTS, EVALUATION_POINTS, 'pipeline-default', severity, [...WINDOWS]
         );
-        for (const mode of ['off', 'on'] as const) {
-          const errorGroups: Array<number | null> = mode === 'off' ? [null] : SIGNED_ERRORS;
-          for (const signedError of errorGroups) {
+        for (const trueCoefficient of TRUE_COEFFICIENTS) {
+          for (const mode of ['off', 'on'] as const) {
+            const errorGroups: Array<number | null> = mode === 'off'
+              ? [null]
+              : ASSUMED_COEFFICIENTS.map(assumed => assumed - trueCoefficient);
+            for (const signedError of errorGroups) {
             for (const persistenceWindow of WINDOWS) {
               const group = run.results.filter(result =>
                 result.condition === 'structural-anomaly' &&
+                result.trueTemperatureCoefficient === trueCoefficient &&
                 result.compensationMode === (mode === 'on' ? 'with-compensation' : 'without-compensation') &&
                 (mode === 'off'
                   ? result.assumedTemperatureCoefficient === 0
@@ -87,7 +92,7 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
               const detected = metrics.filter(metric => metric.anomalyDetected).length;
               const delays = metrics.map(metric => metric.detectionDelay).filter((v): v is number => v !== null);
               perSeedRows.push({
-                statistic: 'seed', seed, severity, signedCoefficientError: signedError,
+                statistic: 'seed', seed, severity, trueTemperatureCoefficient: trueCoefficient, signedCoefficientError: signedError,
                 absoluteCoefficientError: signedError === null ? null : Math.abs(signedError), mode, persistenceWindow,
                 cases: group.length,
                 falseAlarmEpisodesPerCase: mean(metrics.map(metric => metric.falseAlarmEpisodes)),
@@ -113,7 +118,7 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
     ];
     const groups = new Map<string, Row[]>();
     for (const row of perSeedRows) {
-      const key = [row.severity, row.signedCoefficientError ?? 'baseline', row.mode, row.persistenceWindow].join('|');
+      const key = [row.severity, row.trueTemperatureCoefficient, row.signedCoefficientError ?? 'baseline', row.mode, row.persistenceWindow].join('|');
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
     for (const group of groups.values()) {
@@ -130,9 +135,9 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
     }
 
     const allRows = [...perSeedRows, ...summaryRows];
-    expect(perSeedRows).toHaveLength(960);
-    expect(summaryRows).toHaveLength(384);
-    expect(allRows).toHaveLength(1344);
+    expect(perSeedRows).toHaveLength(2160);
+    expect(summaryRows).toHaveLength(864);
+    expect(allRows).toHaveLength(3024);
     expect(perSeedRows.every(row => row.cases > 0)).toBe(true);
     expect(perSeedRows.every(row => row.detectionRatePct >= 0 && row.detectionRatePct <= 100)).toBe(true);
 
