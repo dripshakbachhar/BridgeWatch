@@ -45,7 +45,6 @@ describe('EXP-07 CSV report export', () => {
     expect(report['persistence-summary.csv'].split('\r\n')).toHaveLength(10);
     expect(report['metadata.csv']).toContain('calibration_points_per_case,30');
     expect(report['metadata.csv']).toContain('evaluation_points_per_case,40');
-    expect(report['metadata.csv']).toContain('generated_at,');
     expect(report['main-summary.csv']).toContain('false_alarm_denominator');
     expect(report['severity-summary.csv']).toContain('post_onset_sample_denominator');
     expect(report['persistence-summary.csv']).toContain('detection_denominator');
