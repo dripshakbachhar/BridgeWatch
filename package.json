@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "export:exp07": "vitest run src/tests/exp07Report.test.ts"
   },
   "dependencies": {
     "react": "19.3.0",
