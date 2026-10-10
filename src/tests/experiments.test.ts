@@ -1007,6 +1007,26 @@ describe('EXP-07 anomaly severity sensitivity', () => {
     }
   });
 
+  test('windows longer than evaluation data cannot trigger persistence alerts', () => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      [1.5], [8], [8], [7], 10, 3,
+      'pipeline-default', 1, [3, 4]
+    );
+
+    expect(experiment.persistenceWindows).toEqual([3, 4]);
+
+    for (const result of experiment.results) {
+      for (const metric of result.persistenceMetrics) {
+        expect(metric.falseAlarmEpisodes).toBeLessThanOrEqual(1);
+        if (metric.persistenceWindow > result.evaluationPoints) {
+          expect(metric.falseAlarmEpisodes).toBe(0);
+          expect(metric.anomalyDetected).toBe(false);
+          expect(metric.detectionDelay).toBeNull();
+        }
+      }
+    }
+  });
+
   test('accepts validated custom persistence windows', () => {
     const experiment = runEnvironmentalCompensationExperiment(
       [1.5], [8], [8], [7], 10, 12,
