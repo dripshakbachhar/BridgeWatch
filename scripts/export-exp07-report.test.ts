@@ -27,6 +27,8 @@ describe('EXP-07 CSV report export', () => {
     expect(report['main-summary.csv']).toContain('false_alarm_denominator');
     expect(report['severity-summary.csv']).toContain('post_onset_sample_denominator');
     expect(report['persistence-summary.csv']).toContain('detection_denominator');
+    expect(report['severity-summary.csv']).toContain('2.5,injected-step,off,270,270,270,100.00,0,5400,98.89,0.00');
+    expect(report['persistence-summary.csv']).toContain('1,off,1080,1070,1080,99.07,10,0.70,270,2.28');
 
     const outputDirectory = resolve(process.cwd(), 'reports', 'exp07');
     await mkdir(outputDirectory, { recursive: true });
