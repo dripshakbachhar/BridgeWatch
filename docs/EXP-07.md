@@ -35,6 +35,18 @@ These are software-generated scenarios, not measurements collected from an opera
 
 Detection rate and anomaly-detected status are different metrics. A run can be marked as detecting an anomaly even when not every post-onset point exceeds the threshold.
 
+### 4.1 Normalization and sensitivity comparison
+
+The default `pipeline-default` strategy preserves the original pipeline behavior: the uncompensated mode uses the standard deviation of raw calibration measurements (with a floor of 10% of the configured sensor baseline standard deviation), while the compensated mode uses the standard deviation of calibration residuals calculated with the assumed temperature coefficient (with a numerical floor of `1e-9`). Both scales are estimated from calibration data only.
+
+EXP-07 now also accepts an optional final `normalizationStrategy` argument:
+
+- `pipeline-default`: preserve the original mode-specific scales and existing report values.
+- `raw-calibration-std`: apply the raw calibration standard deviation to both processing modes.
+- `compensated-calibration-std`: apply the compensated calibration residual standard deviation to both processing modes.
+
+For sensitivity comparisons, run the same configuration and seed list with each explicit scale strategy. The synthetic series are deterministic, so these runs use the same underlying cases while changing the normalization scale. This is a controlled sensitivity check, not proof that either scale is universally preferable. Evaluation samples and injected anomaly samples must not be used to estimate either calibration scale.
+
 ## 5. Results
 
 The following are aggregate results from the synthetic diagnostic run.
