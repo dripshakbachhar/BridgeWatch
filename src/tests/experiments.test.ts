@@ -396,6 +396,26 @@ test('rejects an empty random seed list', () => {
   );
 });
 
+test.each([
+  Number.NaN,
+  Number.POSITIVE_INFINITY,
+  Number.NEGATIVE_INFINITY,
+  1.5
+])('rejects invalid random seed %s', (seed) => {
+  expect(() =>
+    runEnvironmentalCompensationExperiment(
+      [2],
+      [4],
+      [0, 4],
+      [seed],
+      10,
+      12
+    )
+  ).toThrow(
+    'EXP-07 random seeds must be finite integers.'
+  );
+});
+
 test('produces reproducible results across conditions and modes', () => {
 const run = () =>
 runEnvironmentalCompensationExperiment(
