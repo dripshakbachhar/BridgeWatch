@@ -1007,6 +1007,48 @@ describe('EXP-07 anomaly severity sensitivity', () => {
     }
   });
 
+  test('accepts validated custom persistence windows', () => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      [1.5], [8], [8], [7], 10, 12,
+      'pipeline-default', 1, [2, 4]
+    );
+
+    expect(experiment.persistenceWindows).toEqual([2, 4]);
+    for (const result of experiment.results) {
+      expect(
+        result.persistenceMetrics.map((metric) => metric.persistenceWindow)
+      ).toEqual([2, 4]);
+    }
+
+    const sweep = runEnvironmentalAnomalySeveritySweep(
+      [1.5], [8], [8], [7], 10, 12, [0, 1],
+      'pipeline-default', [2, 4]
+    );
+    expect(sweep.persistenceWindows).toEqual([2, 4]);
+    for (const entry of sweep.results) {
+      for (const result of entry.results) {
+        expect(
+          result.persistenceMetrics.map((metric) => metric.persistenceWindow)
+        ).toEqual([2, 4]);
+      }
+    }
+  });
+
+  test.each([
+    [],
+    [0],
+    [-1],
+    [1.5],
+    [2, 2]
+  ])('rejects invalid persistence windows: %j', (windows) => {
+    expect(() => runEnvironmentalCompensationExperiment(
+      [2], [8], [8], [7], 10, 12,
+      'pipeline-default', 1, windows
+    )).toThrow(
+      'EXP-07 persistence windows must be a non-empty list of unique positive integers.'
+    );
+  });
+
   test('rejects empty, negative, and non-finite severity sweeps', () => {
     expect(() => runEnvironmentalAnomalySeveritySweep(
       [2], [8], [8], [7], 10, 12, []
