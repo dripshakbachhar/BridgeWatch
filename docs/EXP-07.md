@@ -409,3 +409,30 @@ npm run low-severity:exp07
 The command writes `reports/exp07/low-severity-stress.csv` and emits a machine-readable JSON summary between explicit markers in the test logs. Each seed-level row reports the number of scored synthetic configurations, mean pre-onset false-alarm episodes per configuration, case-level detection rate, detected-case-only mean delay, and missed cases. The CSV appends across-seed mean, sample standard deviation, minimum, and maximum summaries for each severity × coefficient-match group × compensation mode × persistence window.
 
 The severity multiplier scales the synthetic additive step relative to the configured sensor baseline standard deviation; it is not a calibrated physical damage level. Cases share deterministic generator structure and should not be treated as independent bridge trials. The across-seed summaries are descriptive, not confidence intervals. The study is designed to expose where weak anomalies become difficult to detect and where persistence filtering trades false-alarm suppression for delay or misses. It does not select new defaults or validate performance on real bridges. Numerical findings will be recorded only after the corresponding CI run completes successfully.
+
+### 13.1 Observed low-severity results across seeds 101–110
+
+The low-severity study completed successfully in CI. Each percentage below is the mean of ten seed-level case-detection rates. Mean delay is averaged over detected cases only; misses are mean missed configurations per seed. False-alarm episodes are counted in the pre-onset interval and averaged per configuration.
+
+| Severity | Coefficients | Compensation | Window | Case detection | Mean delay (samples) | Mean misses/seed | False episodes/config |
+|---:|---|---|---:|---:|---:|---:|---:|
+| 0.25 | Matched | Off | 1 | 79.44% | 2.44 | 3.7 | 0.994 |
+| 0.25 | Matched | On | 1 | 40.00% | 6.05 | 10.8 | 0.483 |
+| 0.25 | Matched | Off | 5 | 42.22% | 7.75 | 10.4 | 0.222 |
+| 0.25 | Matched | On | 5 | 3.33% | 15.00 | 17.4 | 0.000 |
+| 0.25 | Mismatched | Off | 1 | 79.44% | 2.44 | 14.8 | 0.994 |
+| 0.25 | Mismatched | On | 1 | 62.08% | 3.71 | 27.3 | 0.897 |
+| 0.25 | Mismatched | Off | 5 | 42.22% | 7.75 | 41.6 | 0.222 |
+| 0.25 | Mismatched | On | 5 | 22.22% | 7.45 | 56.0 | 0.136 |
+| 1.00 | Matched | Off | 1 | 99.44% | 0.94 | 0.1 | 0.994 |
+| 1.00 | Matched | On | 1 | 83.33% | 4.11 | 3.0 | 0.483 |
+| 1.00 | Matched | Off | 5 | 86.11% | 6.58 | 2.5 | 0.222 |
+| 1.00 | Matched | On | 5 | 55.00% | 10.13 | 8.1 | 0.000 |
+| 1.00 | Mismatched | Off | 1 | 99.44% | 0.94 | 0.4 | 0.994 |
+| 1.00 | Mismatched | On | 1 | 77.78% | 3.76 | 16.0 | 0.897 |
+| 1.00 | Mismatched | Off | 5 | 86.11% | 6.58 | 10.0 | 0.222 |
+| 1.00 | Mismatched | On | 5 | 48.06% | 7.96 | 37.4 | 0.136 |
+
+**Interpretation:** the weak 0.25 step is difficult even without compensation, and compensation plus longer persistence can nearly eliminate qualifying detections in matched cases while reducing pre-onset false-alarm episodes. At severity 1.0, the same trade-off remains substantial: with matched coefficients and a five-sample window, case detection averages 86.11% off versus 55.00% on. Under mismatch, compensation is less effective at suppressing pre-onset episodes and has more misses. A mean delay can look deceptively modest when many cases are missed, so detection rate and misses must be read alongside delay.
+
+These outcomes support a sensitivity finding, not a universal recommendation against compensation or for a particular persistence window. No defaults were changed. The CSV and CI JSON contain all four tested severities (including 0.5 and 0.75), all windows, both coefficient-match groups, both modes, and descriptive across-seed variability. The study remains limited to correlated synthetic configurations; it does not establish real-bridge performance.
