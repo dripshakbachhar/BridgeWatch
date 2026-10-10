@@ -419,6 +419,22 @@ test.each([
   );
 });
 
+test.each([0, 4294967295])(
+  'accepts valid unsigned 32-bit seed boundary %s',
+  (seed) => {
+    expect(() =>
+      runEnvironmentalCompensationExperiment(
+        [2],
+        [4],
+        [0, 4],
+        [seed],
+        10,
+        12
+      )
+    ).not.toThrow();
+  }
+);
+
 test('produces reproducible results across conditions and modes', () => {
 const run = () =>
 runEnvironmentalCompensationExperiment(
