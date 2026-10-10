@@ -221,7 +221,7 @@ npm test -- src/tests/experiments.test.ts
 npm run build
 ```
 
-The targeted experiment test command checks the documented severity-sweep, persistence, and zero-severity negative-control aggregates. The report-export test also recomputes the default results, checks deterministic CSV output and explicit denominators, and writes four machine-readable CSV files. The build command checks TypeScript and creates the production build. Passing these checks confirms reproducibility against this repository version; it does not independently validate the synthetic model or field performance.
+The targeted experiment test command checks the documented severity-sweep, persistence, and zero-severity negative-control aggregates. The report-export test recomputes the default results and both documented normalization-sensitivity runs, checks deterministic CSV output and explicit denominators against documented aggregates, and writes five machine-readable CSV files. The build command checks TypeScript and creates the production build. Passing these checks confirms reproducibility against this repository version; it does not independently validate the synthetic model or field performance.
 
 ### 8.1 Configuration used for the documented aggregate tables
 
@@ -257,13 +257,6 @@ For the persistence table, combine only the four non-zero severities, group by c
 
 The seed list must contain at least one value. Each seed must be an unsigned 32-bit integer from `0` through `4294967295`, inclusive. Fractional, negative, out-of-range, and non-finite values such as `NaN` or `Infinity` are rejected. Reusing the same seed and configuration produces reproducible synthetic results.
 
-## 9. Conclusion
-
-In this synthetic experiment, temperature compensation reduced false alarms, with a larger reduction when the assumed temperature coefficient matched the generating coefficient. The simulation also showed lower anomaly detection rates after compensation, particularly in mismatched cases.
-
-The defensible conclusion is that compensation and coefficient calibration deserve further evaluation—not that the method is validated for real-world bridge monitoring.
-
-
 ### 8.3 Regenerating the machine-readable report
 
 From the repository root, run:
@@ -278,6 +271,14 @@ The command runs the deterministic exporter test and writes the following files 
 - `main-summary.csv` — condition × coefficient-match status × compensation mode; includes case counts, false-alarm totals and denominators, false-alarm rates, and (for anomaly cases) case-level and post-onset pointwise detection metrics.
 - `severity-summary.csv` — one row per severity multiplier and compensation mode; explicitly distinguishes the zero-severity negative control, includes the case-level crossing denominator, misses, post-onset sample denominator, and mean delay among crossing cases only.
 - `persistence-summary.csv` — non-zero severity results grouped by persistence window and compensation mode; includes the detection denominator, missed configurations, detected-case delay, and a separate normal-case denominator for mean false-alarm episodes.
-- `metadata.csv` — configuration arrays, sample lengths, normalization strategy, result-row counts, rounding rules, and a note that configurations are correlated synthetic cases rather than independent physical trials.
+- `normalization-sensitivity.csv` — the two shared-scale normalization strategies, grouped by condition, coefficient match, and compensation mode, with false-alarm rates and detection metrics.
+- `metadata.csv` — configuration arrays, sample lengths, normalization strategies, result-row counts, rounding rules, and a note that configurations are correlated synthetic cases rather than independent physical trials.
 
 CSV headers and row ordering are fixed. Rates are exported as percentages with two decimal places; means and delays use two decimal places; unavailable metrics are blank. The exporter does not add a wall-clock timestamp, so identical result objects produce byte-for-byte identical files. The tables are derived from the returned EXP-07 result objects rather than copied from the Markdown tables. Re-running the command overwrites the four generated files. The CSVs remain synthetic-analysis artifacts and must not be described as field validation.
+
+
+## 9. Conclusion
+
+In this synthetic experiment, temperature compensation reduced false alarms, with a larger reduction when the assumed temperature coefficient matched the generating coefficient. The simulation also showed lower anomaly detection rates after compensation, particularly in mismatched cases.
+
+The defensible conclusion is that compensation and coefficient calibration deserve further evaluation—not that the method is validated for real-world bridge monitoring.
