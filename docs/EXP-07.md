@@ -197,7 +197,7 @@ The results suggest that coefficient accuracy matters in this simulated setup. C
 2. Results depend on the signal generator, anomaly model, noise assumptions, calibration window, thresholds, and coefficient values.
 3. The simulation does not establish that temperature is the only environmental influence on a real bridge.
 4. A reduction in false alarms does not, by itself, prove improved safety or maintenance decisions.
-5. The observed results should be independently reproduced and checked against the current implementation before publication.
+5. The documented severity-sweep and persistence aggregate tables are regression-checked against the current implementation by `src/tests/experiments.test.ts`. This guards against accidental drift, but independent reproduction and external review are still needed before publication.
 6. Field validation would require suitable real sensor data, documented ground truth where available, and an appropriate evaluation protocol.
 
 ## 8. Reproducibility
