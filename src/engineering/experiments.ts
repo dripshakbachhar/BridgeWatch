@@ -207,6 +207,7 @@ export interface EnvironmentalCompensationExperiment {
     | 'raw-calibration-std'
     | 'compensated-calibration-std';
   anomalySeverityMultiplier: number;
+  persistenceWindows: number[];
   results: EnvironmentalCompensationExperimentResult[];
 }
 
@@ -228,7 +229,24 @@ export interface EnvironmentalAnomalySeveritySweep {
     | 'pipeline-default'
     | 'raw-calibration-std'
     | 'compensated-calibration-std';
+  persistenceWindows: number[];
   results: EnvironmentalAnomalySeveritySweepEntry[];
+}
+
+function validatePersistenceWindows(
+  persistenceWindows: number[]
+): void {
+  if (
+    persistenceWindows.length === 0 ||
+    persistenceWindows.some(
+      (window) => !Number.isInteger(window) || window <= 0
+    ) ||
+    new Set(persistenceWindows).size !== persistenceWindows.length
+  ) {
+    throw new Error(
+      'EXP-07 persistence windows must be a non-empty list of unique positive integers.'
+    );
+  }
 }
 
 function severityThresholdExceeded(
@@ -1469,7 +1487,8 @@ function evaluateEnvironmentalSeries(
     | 'pipeline-default'
     | 'raw-calibration-std'
     | 'compensated-calibration-std' = 'pipeline-default',
-  anomalySeverityMultiplier = 2.5
+  anomalySeverityMultiplier = 2.5,
+  persistenceWindows = [1, 2, 3, 5]
 ): EnvironmentalCompensationExperimentResult {
   const calibrationMeasurements =
     series.measurements.slice(0, calibrationPoints);
@@ -1616,7 +1635,6 @@ function evaluateEnvironmentalSeries(
 
   const anomalyDetected = detectionDelay !== null;
 
-  const persistenceWindows = [1, 2, 3, 5];
   const countPersistenceEpisodes = (
     values: number[],
     persistenceWindow: number
@@ -1748,8 +1766,11 @@ export function runEnvironmentalCompensationExperiment(
     | 'pipeline-default'
     | 'raw-calibration-std'
     | 'compensated-calibration-std' = 'pipeline-default',
-  anomalySeverityMultiplier = 2.5
+  anomalySeverityMultiplier = 2.5,
+  persistenceWindows = [1, 2, 3, 5]
 ): EnvironmentalCompensationExperiment {
+  validatePersistenceWindows(persistenceWindows);
+
   if (
     !Number.isFinite(anomalySeverityMultiplier) ||
     anomalySeverityMultiplier < 0
@@ -1901,7 +1922,8 @@ export function runEnvironmentalCompensationExperiment(
                     condition,
                     compensationMode,
                     normalizationStrategy,
-                    anomalySeverityMultiplier
+                    anomalySeverityMultiplier,
+                    persistenceWindows
                   )
                 );
               }
@@ -1922,6 +1944,7 @@ export function runEnvironmentalCompensationExperiment(
     evaluationPoints,
     normalizationStrategy,
     anomalySeverityMultiplier,
+    persistenceWindows,
     results
   };
 }
@@ -1941,8 +1964,11 @@ export function runEnvironmentalAnomalySeveritySweep(
   normalizationStrategy:
     | 'pipeline-default'
     | 'raw-calibration-std'
-    | 'compensated-calibration-std' = 'pipeline-default'
+    | 'compensated-calibration-std' = 'pipeline-default',
+  persistenceWindows = [1, 2, 3, 5]
 ): EnvironmentalAnomalySeveritySweep {
+  validatePersistenceWindows(persistenceWindows);
+
   if (
     severityMultipliers.length === 0 ||
     severityMultipliers.some(
@@ -1964,7 +1990,8 @@ export function runEnvironmentalAnomalySeveritySweep(
       calibrationPoints,
       evaluationPoints,
       normalizationStrategy,
-      anomalySeverityMultiplier
+      anomalySeverityMultiplier,
+      persistenceWindows
     );
 
     return {
@@ -1985,6 +2012,7 @@ export function runEnvironmentalAnomalySeveritySweep(
     calibrationPoints,
     evaluationPoints,
     normalizationStrategy,
+    persistenceWindows,
     results
   };
 }
