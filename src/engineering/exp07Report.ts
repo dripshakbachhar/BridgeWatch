@@ -17,7 +17,7 @@ function csvCell(value: CsvCell): string {
   if (value === null) return '';
   const text = String(value);
   return /[",\r\n]/.test(text)
-    ? `"${text.replace(/"/g, '""')} "`.replace(/" $/, '"')
+    ? `"${text.replace(/"/g, '""')}"`
     : text;
 }
 
