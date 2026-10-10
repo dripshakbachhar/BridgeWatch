@@ -966,6 +966,51 @@ describe('EXP-07 anomaly severity sensitivity', () => {
     }
   });
 
+  test('diagnostic: prints full default severity-sweep aggregates', () => {
+    const sweep = runEnvironmentalAnomalySeveritySweep();
+    const summary = sweep.results.flatMap((entry) =>
+      [1.5, 2, 3].flatMap((threshold) =>
+        ['without-compensation', 'with-compensation'].flatMap((mode) =>
+          ['matched', 'mismatched'].map((coefficientMatch) => {
+            const rows = entry.results.filter((r) =>
+              r.threshold === threshold &&
+              r.compensationMode === mode &&
+              (r.trueTemperatureCoefficient === r.assumedTemperatureCoefficient
+                ? 'matched'
+                : 'mismatched') === coefficientMatch
+            );
+            const detected = rows.filter((r) => r.anomalyDetected);
+            return {
+              severity: entry.anomalySeverityMultiplier,
+              threshold,
+              compensation: mode,
+              coefficients: coefficientMatch,
+              cases: rows.length,
+              meanPointDetectionRate: rows.length
+                ? rows.reduce((sum, r) => sum + r.detectionRate, 0) / rows.length
+                : null,
+              caseDetectionRate: rows.length
+                ? detected.length / rows.length
+                : null,
+              meanDelayAmongDetected: detected.length
+                ? detected.reduce((sum, r) => sum + (r.detectionDelay ?? 0), 0) / detected.length
+                : null,
+              missedCases: rows.length - detected.length,
+              zeroSeverityFalsePositiveRate: entry.anomalySeverityMultiplier === 0 && rows.length
+                ? rows.filter((r) => r.zeroSeverityFalsePositive).length / rows.length
+                : null,
+              meanPreOnsetFalseAlarms: rows.length
+                ? rows.reduce((sum, r) => sum + r.falseAlarms, 0) / rows.length
+                : null
+            };
+          })
+        )
+      )
+    );
+    console.log('EXP07_SEVERITY_DIAGNOSTIC=' + JSON.stringify(summary));
+    expect(summary).toHaveLength(60);
+  });
+
   test('rejects empty, negative, and non-finite severity sweeps', () => {
     expect(() => runEnvironmentalAnomalySeveritySweep(
       [2], [8], [8], [7], 10, 12, []
