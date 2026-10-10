@@ -1693,7 +1693,11 @@ function evaluateEnvironmentalSeries(
       return {
         persistenceWindow,
         falseAlarmEpisodes:
-          condition === 'normal'
+          condition === 'normal' ||
+          (
+            condition === 'structural-anomaly' &&
+            anomalySeverityMultiplier === 0
+          )
             ? countPersistenceEpisodes(scores, persistenceWindow)
             : countPersistenceEpisodes(
                 preOnsetScores,
@@ -1724,7 +1728,11 @@ function evaluateEnvironmentalSeries(
     calibrationPoints,
     evaluationPoints,
     falseAlarms:
-      condition === 'normal'
+      condition === 'normal' ||
+      (
+        condition === 'structural-anomaly' &&
+        anomalySeverityMultiplier === 0
+      )
         ? normalFalseAlarmCount
         : scores
             .slice(0, localOnsetIndex)
