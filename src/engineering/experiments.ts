@@ -1782,6 +1782,16 @@ export function runEnvironmentalCompensationExperiment(
   validatePersistenceWindows(persistenceWindows);
 
   if (
+    normalizationStrategy !== 'pipeline-default' &&
+    normalizationStrategy !== 'raw-calibration-std' &&
+    normalizationStrategy !== 'compensated-calibration-std'
+  ) {
+    throw new Error(
+      'EXP-07 normalization strategy must be pipeline-default, raw-calibration-std, or compensated-calibration-std.'
+    );
+  }
+
+  if (
     !Number.isFinite(anomalySeverityMultiplier) ||
     anomalySeverityMultiplier < 0
   ) {
