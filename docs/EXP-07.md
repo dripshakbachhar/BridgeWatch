@@ -282,3 +282,35 @@ CSV headers and row ordering are fixed. Rates are exported as percentages with t
 In this synthetic experiment, temperature compensation reduced false alarms, with a larger reduction when the assumed temperature coefficient matched the generating coefficient. The simulation also showed lower anomaly detection rates after compensation, particularly in mismatched cases.
 
 The defensible conclusion is that compensation and coefficient calibration deserve further evaluation—not that the method is validated for real-world bridge monitoring.
+
+## 10. Methodological audit and interpretation boundaries
+
+This section records a source-level audit of the EXP-07 metric implementation and the limits of the resulting evidence. It does not change detector behavior or claim validation on operating bridges.
+
+### 10.1 Metric and denominator audit
+
+- **Normal-condition false alarms:** `falseAlarms` counts threshold exceedances over the full evaluation interval. The report denominator is the number of normal evaluation samples across the group.
+- **Injected-step false alarms:** for non-zero severity, `falseAlarms` counts threshold exceedances strictly before the injected step begins. The denominator is the corresponding pre-onset sample count.
+- **Zero-severity negative control:** no step is injected, so the entire evaluation interval is negative-control data. Threshold crossings across that full interval are false positives. The raw result's `anomalyDetected` field can still be true when a post-onset crossing occurs; that field means a crossing was observed, not that a real anomaly exists. The severity CSV therefore labels the zero-severity case as `negative-control` and reports its case-level crossing percentage as a false-positive rate.
+- **Pointwise rate versus case-level rate:** `detectionRate` is the fraction of post-onset samples crossing the absolute z-score threshold. The case-level rate is the fraction of configurations with at least one post-onset crossing. These metrics answer different questions and should not be substituted for one another.
+- **Detection delay:** delay is measured from the first post-onset sample, with index 0 representing the onset sample. Mean delay is calculated only among configurations with a crossing. At severity 0, it is the timing of a false alert, not a damage-detection delay.
+- **Persistence metrics:** persistence alerts require the configured number of consecutive threshold-exceeding samples. The episode counter counts each contiguous qualifying run once, rather than treating every overlapping window inside that run as a separate episode. Normal cases and zero-severity controls count episodes across the full evaluation interval; non-zero injected-step cases count false-alarm episodes only before onset. The reported persistence detection aggregate uses non-zero severity cases, while its normal false-alarm episode mean is calculated separately from normal-condition baseline results.
+- **Rounding and aggregation:** exported rates and means are displayed to two decimal places. Severity pointwise exceedance counts are reconstructed from each stored rate and the post-onset sample count before aggregation; the documented default uses 20 post-onset samples per configuration, so this recovers integer exceedance counts for the current grid. Aggregates weight each configuration equally; they are not estimates weighted by real-world operating frequency.
+
+For the documented 40-sample evaluation period, the step begins after 20 evaluation samples. Thus normal and zero-severity false-alarm denominators use 40 samples per configuration, non-zero anomaly false-alarm denominators use 20 pre-onset samples, and pointwise anomaly rates use 20 post-onset samples. These statements are specific to this configuration; callers using other lengths should use the corresponding generated denominators rather than copying these numbers.
+
+### 10.2 Design risks and evidence limits
+
+1. **Dependence between cases:** threshold and coefficient combinations reuse deterministic scenarios. The same seed/configuration pattern is also reinitialized for each sensor, so sensor streams share the underlying random draws. The number of scored configurations must not be presented as the number of independent trials.
+2. **Synthetic anomaly model:** the injected change is a constant additive step scaled by the configured sensor baseline standard deviation, applied to each strain-sensor series in the experiment. It is not a calibrated physical damage magnitude, localized bridge event, or evolving failure model.
+3. **Limited seed coverage:** three seeds provide a reproducible diagnostic grid, but are insufficient to characterize broad uncertainty or rare false alarms. Deterministic repetition verifies reproducibility, not generalization.
+4. **Parameter and threshold dependence:** results are conditional on the chosen threshold/coefficient grid and generator. These results do not show that thresholds are optimal, that the supplied compensation coefficient can be estimated accurately in operation, or that the method transfers to real bridges.
+5. **Normalization confounding:** the default comparison changes both residual processing and normalization scale. The explicit shared-scale sensitivity runs help separate these effects in this synthetic setup, but do not determine a universally preferable normalization strategy.
+6. **No external validation:** no real-bridge sensor dataset, independent test site, field ground truth, or external replication is evaluated here. No safety, maintenance, or operational-performance claim should be inferred from these results.
+
+### 10.3 Audit conclusion and next evidence needed
+
+The source-level review found the documented default denominators, case-level crossing definitions, detected-case delay averages, and persistence episode accounting consistent with the implementation for the documented fixed-length experiment. The zero-severity control is interpretable as a negative control only when every crossing is treated as a false positive; it must not be described as successful anomaly detection.
+
+No detector behavior change is made as part of this audit. The next scientifically meaningful step is independent evaluation of the synthetic assumptions and then, if suitable data can be obtained, a separately specified test on real sensor data with documented train/calibration and evaluation separation, justified thresholds, ground truth where available, and uncertainty reporting. Until then, EXP-07 is a reproducible synthetic sensitivity study—not field validation.
+
