@@ -1007,51 +1007,6 @@ describe('EXP-07 anomaly severity sensitivity', () => {
     }
   });
 
-  test('diagnostic: prints persistence sweep aggregates', () => {
-    const severities = [0, 0.5, 1, 1.5, 2.5];
-    const windows = [1, 2, 3, 5];
-    const anomalySweep = runEnvironmentalAnomalySeveritySweep();
-    const normalRuns = severities.map((severity) =>
-      runEnvironmentalCompensationExperiment(
-        [1.5, 2, 3], [4, 8, 12], [0, 4, 8, 12, 16],
-        [7, 17, 27], 30, 40, 'pipeline-default', severity
-      )
-    );
-    const summary = severities.flatMap((severity, index) =>
-      ['without-compensation', 'with-compensation'].flatMap((mode) =>
-        windows.map((window) => {
-          const anomalyRows = anomalySweep.results
-            .find((entry) => entry.anomalySeverityMultiplier === severity)!
-            .results.filter((r) => r.compensationMode === mode);
-          const anomalyMetrics = anomalyRows.map((r) =>
-            r.persistenceMetrics.find((m) => m.persistenceWindow === window)!
-          );
-          const normalRows = normalRuns[index]!.results.filter(
-            (r) => r.condition === 'normal' && r.compensationMode === mode
-          );
-          const normalMetrics = normalRows.map((r) =>
-            r.persistenceMetrics.find((m) => m.persistenceWindow === window)!
-          );
-          const detected = anomalyMetrics.filter((m) => m.anomalyDetected);
-          return {
-            severity, compensation: mode, window,
-            anomalyCases: anomalyRows.length,
-            detectionRate: anomalyRows.length ? detected.length / anomalyRows.length : null,
-            missed: anomalyRows.length - detected.length,
-            meanDelay: detected.length
-              ? detected.reduce((sum, m) => sum + (m.detectionDelay ?? 0), 0) / detected.length
-              : null,
-            meanNormalFalseAlarmEpisodes: normalMetrics.length
-              ? normalMetrics.reduce((sum, m) => sum + m.falseAlarmEpisodes, 0) / normalMetrics.length
-              : null
-          };
-        })
-      )
-    );
-    console.log('EXP07_PERSISTENCE_DIAGNOSTIC=' + JSON.stringify(summary));
-    expect(summary).toHaveLength(40);
-  });
-
   test('rejects empty, negative, and non-finite severity sweeps', () => {
     expect(() => runEnvironmentalAnomalySeveritySweep(
       [2], [8], [8], [7], 10, 12, []
