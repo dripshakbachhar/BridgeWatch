@@ -1644,9 +1644,16 @@ export function runEnvironmentalCompensationExperiment(
     );
   }
 
-  if (seeds.some((seed) => !Number.isInteger(seed))) {
+  if (
+    seeds.some(
+      (seed) =>
+        !Number.isInteger(seed) ||
+        seed < 0 ||
+        seed > 0xffff_ffff
+    )
+  ) {
     throw new Error(
-      'EXP-07 random seeds must be finite integers.'
+      'EXP-07 random seeds must be unsigned 32-bit integers (0 through 4294967295).'
     );
   }
 
