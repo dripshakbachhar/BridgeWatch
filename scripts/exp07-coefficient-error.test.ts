@@ -106,6 +106,7 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
         }
       }
     }
+    }
 
     const summaryRows: Row[] = [];
     const stats: Array<[Exclude<Statistic, 'seed'>, (values: number[]) => number]> = [
