@@ -1035,12 +1035,12 @@ describe('EXP-07 anomaly severity sensitivity', () => {
   });
 
   test.each([
-    [],
-    [0],
-    [-1],
-    [1.5],
-    [2, 2]
-  ])('rejects invalid persistence windows: %j', (windows) => {
+    { windows: [] },
+    { windows: [0] },
+    { windows: [-1] },
+    { windows: [1.5] },
+    { windows: [2, 2] }
+  ])('rejects invalid persistence windows: $windows', ({ windows }) => {
     expect(() => runEnvironmentalCompensationExperiment(
       [2], [8], [8], [7], 10, 12,
       'pipeline-default', 1, windows
