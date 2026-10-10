@@ -280,7 +280,9 @@ function calculatePersistentDetection(
     );
 
     if (persistent) {
-      return index;
+      // Detection is timestamped when the final required sample arrives,
+      // matching EXP-07's persistence-delay convention.
+      return index + persistenceWindow - 1;
     }
   }
 
