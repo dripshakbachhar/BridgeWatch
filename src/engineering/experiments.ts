@@ -173,6 +173,8 @@ export interface EnvironmentalCompensationExperimentResult {
     | 'pipeline-default'
     | 'raw-calibration-std'
     | 'compensated-calibration-std';
+  anomalySeverityMultiplier: number;
+  detectionDelay: number | null;
 }
 
 export interface EnvironmentalCompensationExperiment {
@@ -187,7 +189,29 @@ export interface EnvironmentalCompensationExperiment {
     | 'pipeline-default'
     | 'raw-calibration-std'
     | 'compensated-calibration-std';
+  anomalySeverityMultiplier: number;
   results: EnvironmentalCompensationExperimentResult[];
+}
+
+export interface EnvironmentalAnomalySeveritySweepEntry {
+  anomalySeverityMultiplier: number;
+  results: EnvironmentalCompensationExperimentResult[];
+}
+
+export interface EnvironmentalAnomalySeveritySweep {
+  experimentId: 'EXP-07-SEVERITY-SWEEP';
+  severityMultipliers: number[];
+  thresholds: number[];
+  trueTemperatureCoefficients: number[];
+  assumedTemperatureCoefficients: number[];
+  seeds: number[];
+  calibrationPoints: number;
+  evaluationPoints: number;
+  normalizationStrategy:
+    | 'pipeline-default'
+    | 'raw-calibration-std'
+    | 'compensated-calibration-std';
+  results: EnvironmentalAnomalySeveritySweepEntry[];
 }
 
 function severityThresholdExceeded(
@@ -1340,7 +1364,8 @@ function createEnvironmentalSyntheticSeries(
   trueTemperatureCoefficient: number,
   calibrationPoints: number,
   evaluationPoints: number,
-  condition: 'normal' | 'structural-anomaly'
+  condition: 'normal' | 'structural-anomaly',
+  anomalySeverityMultiplier: number
 ): EnvironmentalSyntheticSeries {
   const random = createSeededRandom(seed);
   const totalPoints = calibrationPoints + evaluationPoints;
@@ -1352,7 +1377,7 @@ function createEnvironmentalSyntheticSeries(
 
   const anomalyOffset =
     condition === 'structural-anomaly'
-      ? 2.5 * sensor.baselineStd
+      ? anomalySeverityMultiplier * sensor.baselineStd
       : 0;
 
   const measurements: Measurement[] = [];
@@ -1426,7 +1451,8 @@ function evaluateEnvironmentalSeries(
   normalizationStrategy:
     | 'pipeline-default'
     | 'raw-calibration-std'
-    | 'compensated-calibration-std' = 'pipeline-default'
+    | 'compensated-calibration-std' = 'pipeline-default',
+  anomalySeverityMultiplier = 2.5
 ): EnvironmentalCompensationExperimentResult {
   const calibrationMeasurements =
     series.measurements.slice(0, calibrationPoints);
@@ -1560,11 +1586,18 @@ function evaluateEnvironmentalSeries(
 
   const postOnsetScores = scores.slice(localOnsetIndex);
 
-  const anomalyDetected =
-    condition === 'structural-anomaly' &&
-    postOnsetScores.some(
+  const firstPostOnsetDetectionIndex =
+    postOnsetScores.findIndex(
       (score) => Math.abs(score) >= threshold
     );
+
+  const detectionDelay =
+    condition === 'structural-anomaly' &&
+    firstPostOnsetDetectionIndex >= 0
+      ? firstPostOnsetDetectionIndex
+      : null;
+
+  const anomalyDetected = detectionDelay !== null;
 
   const detectionRate =
     condition === 'structural-anomaly' &&
@@ -1606,7 +1639,9 @@ function evaluateEnvironmentalSeries(
       residuals.length > 0
         ? residuals[residuals.length - 1]
         : 0,
-    normalizationStrategy
+    normalizationStrategy,
+    anomalySeverityMultiplier,
+    detectionDelay
   };
 }
 
@@ -1620,8 +1655,18 @@ export function runEnvironmentalCompensationExperiment(
   normalizationStrategy:
     | 'pipeline-default'
     | 'raw-calibration-std'
-    | 'compensated-calibration-std' = 'pipeline-default'
+    | 'compensated-calibration-std' = 'pipeline-default',
+  anomalySeverityMultiplier = 2.5
 ): EnvironmentalCompensationExperiment {
+  if (
+    !Number.isFinite(anomalySeverityMultiplier) ||
+    anomalySeverityMultiplier < 0
+  ) {
+    throw new Error(
+      'EXP-07 anomaly severity multiplier must be a finite number greater than or equal to zero.'
+    );
+  }
+
   if (
     !Number.isInteger(calibrationPoints) ||
     calibrationPoints < 2
@@ -1731,7 +1776,8 @@ export function runEnvironmentalCompensationExperiment(
               trueCoefficient,
               calibrationPoints,
               evaluationPoints,
-              'normal'
+              'normal',
+              anomalySeverityMultiplier
             );
 
           for (const condition of conditions) {
@@ -1744,7 +1790,8 @@ export function runEnvironmentalCompensationExperiment(
                     trueCoefficient,
                     calibrationPoints,
                     evaluationPoints,
-                    condition
+                    condition,
+                    anomalySeverityMultiplier
                   );
 
             for (const threshold of thresholds) {
@@ -1761,7 +1808,8 @@ export function runEnvironmentalCompensationExperiment(
                     evaluationPoints,
                     condition,
                     compensationMode,
-                    normalizationStrategy
+                    normalizationStrategy,
+                    anomalySeverityMultiplier
                   )
                 );
               }
@@ -1774,6 +1822,70 @@ export function runEnvironmentalCompensationExperiment(
 
   return {
     experimentId: 'EXP-07',
+    thresholds,
+    trueTemperatureCoefficients,
+    assumedTemperatureCoefficients,
+    seeds,
+    calibrationPoints,
+    evaluationPoints,
+    normalizationStrategy,
+    anomalySeverityMultiplier,
+    results
+  };
+}
+
+/**
+ * Compare structural-anomaly detection across injected step magnitudes.
+ * A multiplier of 0 is a negative-control case with no structural offset.
+ */
+export function runEnvironmentalAnomalySeveritySweep(
+  thresholds = [1.5, 2, 3],
+  trueTemperatureCoefficients = [4, 8, 12],
+  assumedTemperatureCoefficients = [0, 4, 8, 12, 16],
+  seeds = [7, 17, 27],
+  calibrationPoints = 30,
+  evaluationPoints = 40,
+  severityMultipliers = [0, 0.5, 1, 1.5, 2.5],
+  normalizationStrategy:
+    | 'pipeline-default'
+    | 'raw-calibration-std'
+    | 'compensated-calibration-std' = 'pipeline-default'
+): EnvironmentalAnomalySeveritySweep {
+  if (
+    severityMultipliers.length === 0 ||
+    severityMultipliers.some(
+      (multiplier) =>
+        !Number.isFinite(multiplier) || multiplier < 0
+    )
+  ) {
+    throw new Error(
+      'EXP-07 severity sweep requires finite severity multipliers greater than or equal to zero.'
+    );
+  }
+
+  const results = severityMultipliers.map((anomalySeverityMultiplier) => {
+    const experiment = runEnvironmentalCompensationExperiment(
+      thresholds,
+      trueTemperatureCoefficients,
+      assumedTemperatureCoefficients,
+      seeds,
+      calibrationPoints,
+      evaluationPoints,
+      normalizationStrategy,
+      anomalySeverityMultiplier
+    );
+
+    return {
+      anomalySeverityMultiplier,
+      results: experiment.results.filter(
+        (result) => result.condition === 'structural-anomaly'
+      )
+    };
+  });
+
+  return {
+    experimentId: 'EXP-07-SEVERITY-SWEEP',
+    severityMultipliers,
     thresholds,
     trueTemperatureCoefficients,
     assumedTemperatureCoefficients,
