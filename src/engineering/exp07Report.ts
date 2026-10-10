@@ -312,7 +312,8 @@ function normalizationSummary(
 
 function metadataCsv(
   baseline: EnvironmentalCompensationExperiment,
-  sweep: EnvironmentalAnomalySeveritySweep
+  sweep: EnvironmentalAnomalySeveritySweep,
+  normalizationRuns: EnvironmentalCompensationExperiment[]
 ): string {
   const rows: CsvCell[][] = [
     ['experiment_id', baseline.experimentId],
