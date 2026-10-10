@@ -1219,6 +1219,49 @@ describe('EXP-07 anomaly severity sensitivity', () => {
     }
   });
 
+  test.each([1, 3, 5])(
+    'keeps onset-relative delays valid for short or odd evaluation lengths (%i points)',
+    (evaluationPoints) => {
+      const windows = [1, 2, 3, 5, 6];
+      const experiment = runEnvironmentalCompensationExperiment(
+        [0.01], [8], [8], [7], 10, evaluationPoints,
+        'pipeline-default', 2.5, windows
+      );
+      const anomalyResults = experiment.results.filter(
+        (result) => result.condition === 'structural-anomaly'
+      );
+
+      expect(anomalyResults.length).toBeGreaterThan(0);
+      for (const result of anomalyResults) {
+        // The injected step starts at floor(evaluationPoints / 2), so the
+        // post-onset segment is the ceiling half of the evaluation series.
+        const postOnsetLength = evaluationPoints -
+          Math.floor(evaluationPoints / 2);
+
+        if (result.detectionDelay !== null) {
+          expect(result.detectionDelay).toBeGreaterThanOrEqual(0);
+          expect(result.detectionDelay).toBeLessThan(postOnsetLength);
+        }
+        if (evaluationPoints === 1 && result.detectionDelay !== null) {
+          expect(result.detectionDelay).toBe(0);
+        }
+
+        for (const metric of result.persistenceMetrics) {
+          if (metric.detectionDelay !== null) {
+            expect(metric.detectionDelay).toBeGreaterThanOrEqual(
+              metric.persistenceWindow - 1
+            );
+            expect(metric.detectionDelay).toBeLessThan(postOnsetLength);
+          }
+          if (metric.persistenceWindow > postOnsetLength) {
+            expect(metric.anomalyDetected).toBe(false);
+            expect(metric.detectionDelay).toBeNull();
+          }
+        }
+      }
+    }
+  );
+
   test('accepts validated custom persistence windows', () => {
     const experiment = runEnvironmentalCompensationExperiment(
       [1.5], [8], [8], [7], 10, 12,
