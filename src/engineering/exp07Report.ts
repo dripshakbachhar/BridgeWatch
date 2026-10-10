@@ -8,6 +8,7 @@ export interface Exp07CsvReport {
   'main-summary.csv': string;
   'severity-summary.csv': string;
   'persistence-summary.csv': string;
+  'normalization-sensitivity.csv': string;
   'metadata.csv': string;
 }
 
@@ -187,7 +188,8 @@ function severitySummary(sweep: EnvironmentalAnomalySeveritySweep): string {
 
 function persistenceSummary(
   baseline: EnvironmentalCompensationExperiment,
-  sweep: EnvironmentalAnomalySeveritySweep
+  sweep: EnvironmentalAnomalySeveritySweep,
+  normalizationRuns: EnvironmentalCompensationExperiment[]
 ): string {
   const rows: CsvCell[][] = [];
   const modes: EnvironmentalCompensationExperimentResult['compensationMode'][] = [
@@ -243,6 +245,71 @@ function persistenceSummary(
   ], rows);
 }
 
+function normalizationSummary(
+  runs: EnvironmentalCompensationExperiment[]
+): string {
+  const rows: CsvCell[][] = [];
+  const matches = ['matched', 'mismatched'] as const;
+  const conditions: EnvironmentalCompensationExperimentResult['condition'][] = [
+    'normal',
+    'structural-anomaly'
+  ];
+  const modes: EnvironmentalCompensationExperimentResult['compensationMode'][] = [
+    'without-compensation',
+    'with-compensation'
+  ];
+
+  for (const run of runs) {
+    const strategy = run.normalizationStrategy;
+    for (const condition of conditions) {
+      for (const match of matches) {
+        for (const mode of modes) {
+          const group = run.results.filter((result) =>
+            result.condition === condition &&
+            (result.trueTemperatureCoefficient === result.assumedTemperatureCoefficient) === (match === 'matched') &&
+            result.compensationMode === mode
+          );
+          if (group.length === 0) continue;
+          const falseAlarmTotal = group.reduce((sum, result) => sum + result.falseAlarms, 0);
+          const falseAlarmDenominator = group.length * (
+            condition === 'structural-anomaly'
+              ? Math.floor(group[0]!.evaluationPoints * 0.5)
+              : group[0]!.evaluationPoints
+          );
+          const detected = group.filter((result) => result.detectionDelay !== null).length;
+          rows.push([
+            strategy,
+            condition,
+            match,
+            modeLabel(mode),
+            group.length,
+            fixed(falseAlarmTotal / group.length),
+            pct(falseAlarmDenominator ? falseAlarmTotal / falseAlarmDenominator : null),
+            condition === 'structural-anomaly' ? pct(mean(group.map((result) => result.detectionRate))) : null,
+            condition === 'structural-anomaly' ? detected : null,
+            condition === 'structural-anomaly' ? group.length : null,
+            condition === 'structural-anomaly' ? pct(group.length ? detected / group.length : null) : null
+          ]);
+        }
+      }
+    }
+  }
+
+  return toCsv([
+    'normalization_strategy',
+    'condition',
+    'coefficient_match',
+    'compensation',
+    'case_count',
+    'mean_false_alarms_per_case',
+    'false_alarm_rate_pct',
+    'post_onset_point_detection_rate_pct',
+    'cases_detected',
+    'case_detection_denominator',
+    'case_level_detection_rate_pct'
+  ], rows);
+}
+
 function metadataCsv(
   baseline: EnvironmentalCompensationExperiment,
   sweep: EnvironmentalAnomalySeveritySweep
@@ -258,11 +325,13 @@ function metadataCsv(
     ['calibration_points_per_case', baseline.calibrationPoints],
     ['evaluation_points_per_case', baseline.evaluationPoints],
     ['normalization_strategy', baseline.normalizationStrategy],
+    ['normalization_sensitivity_strategies', JSON.stringify(normalizationRuns.map((run) => run.normalizationStrategy))],
     ['baseline_severity_multiplier', baseline.anomalySeverityMultiplier],
     ['severity_multipliers', JSON.stringify(sweep.severityMultipliers)],
     ['persistence_windows', JSON.stringify(baseline.persistenceWindows)],
     ['main_result_row_count', baseline.results.length],
     ['severity_result_row_count', sweep.results.reduce((sum, entry) => sum + entry.results.length, 0)],
+    ['normalization_sensitivity_result_row_count', normalizationRuns.reduce((sum, run) => sum + run.results.length, 0)],
     ['rounding_rule', 'Display rates as percentages with 2 decimal places; means and delays with 2 decimal places; null metrics are blank.'],
     ['dependence_note', 'Configuration rows share deterministic synthetic inputs and are not independent physical trials.']
   ];
@@ -272,15 +341,20 @@ function metadataCsv(
 /** Create deterministic CSV report tables from the actual EXP-07 result objects. */
 export function buildExp07CsvReport(
   baseline: EnvironmentalCompensationExperiment,
-  sweep: EnvironmentalAnomalySeveritySweep
+  sweep: EnvironmentalAnomalySeveritySweep,
+  normalizationRuns: EnvironmentalCompensationExperiment[] = []
 ): Exp07CsvReport {
   if (baseline.experimentId !== 'EXP-07' || sweep.experimentId !== 'EXP-07-SEVERITY-SWEEP') {
     throw new Error('EXP-07 report export requires EXP-07 baseline and severity-sweep results.');
+  }
+  if (normalizationRuns.some((run) => run.experimentId !== 'EXP-07')) {
+    throw new Error('EXP-07 normalization report requires EXP-07 result objects.');
   }
   return {
     'main-summary.csv': mainSummary(baseline),
     'severity-summary.csv': severitySummary(sweep),
     'persistence-summary.csv': persistenceSummary(baseline, sweep),
-    'metadata.csv': metadataCsv(baseline, sweep)
+    'normalization-sensitivity.csv': normalizationSummary(normalizationRuns),
+    'metadata.csv': metadataCsv(baseline, sweep, normalizationRuns)
   };
 }
