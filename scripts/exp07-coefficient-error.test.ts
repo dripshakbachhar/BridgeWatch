@@ -149,4 +149,3 @@ describe('EXP-07 temperature-coefficient calibration-error sensitivity', () => {
     console.log(JSON.stringify({ perSeedRows, summaryRows }));
     console.log('EXP07_COEFFICIENT_ERROR_SUMMARY_JSON_END');
   });
-});
