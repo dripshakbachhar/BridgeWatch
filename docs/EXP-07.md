@@ -395,3 +395,17 @@ In the matched group, compensation lowered negative-control false alerts at ever
 The evidence does not identify a universally best window. Window 1 is the most responsive but permits more false episodes; windows 3 and 5 suppress more episodes, at the cost of later alerts and, with coefficient mismatch, additional misses. The compensation benefit is clearest when coefficients match. The zero-severity negative control remains particularly problematic under mismatch even with persistence and compensation.
 
 The test deliberately does not change default alert settings or detector behavior. Choosing a production window requires a pre-specified acceptable false-alert burden, tolerable delay, and acceptable missed-event rate, then evaluation on representative independent sensor data with appropriate ground truth. These synthetic results are a trade-off analysis, not evidence of operational safety or real-bridge performance.
+
+## 13. Low-severity anomaly stress study
+
+The supplementary low-severity study tests injected step multipliers of 0.25, 0.5, 0.75, and 1.0 across deterministic seeds 101–110. It reuses the documented threshold, coefficient, calibration/evaluation-length, and `pipeline-default` settings, comparing compensation off/on, matched/mismatched coefficients, and persistence windows 1, 2, 3, and 5. The original experiment and detector defaults are unchanged.
+
+Run locally with:
+
+```powershell
+npm run low-severity:exp07
+```
+
+The command writes `reports/exp07/low-severity-stress.csv` and emits a machine-readable JSON summary between explicit markers in the test logs. Each seed-level row reports the number of scored synthetic configurations, mean pre-onset false-alarm episodes per configuration, case-level detection rate, detected-case-only mean delay, and missed cases. The CSV appends across-seed mean, sample standard deviation, minimum, and maximum summaries for each severity × coefficient-match group × compensation mode × persistence window.
+
+The severity multiplier scales the synthetic additive step relative to the configured sensor baseline standard deviation; it is not a calibrated physical damage level. Cases share deterministic generator structure and should not be treated as independent bridge trials. The across-seed summaries are descriptive, not confidence intervals. The study is designed to expose where weak anomalies become difficult to detect and where persistence filtering trades false-alarm suppression for delay or misses. It does not select new defaults or validate performance on real bridges. Numerical findings will be recorded only after the corresponding CI run completes successfully.
