@@ -40,5 +40,8 @@ jobs:
       - name: Run EXP-07 low-severity anomaly stress study
         run: npm run low-severity:exp07 -- --reporter=verbose
 
+      - name: Run EXP-07 coefficient-error sensitivity study
+        run: npm run coefficient-error:exp07 -- --reporter=verbose
+
       - name: Build production application
         run: npm run build
