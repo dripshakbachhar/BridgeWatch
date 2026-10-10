@@ -439,7 +439,7 @@ These outcomes support a sensitivity finding, not a universal recommendation aga
 
 ## 14. Temperature-coefficient calibration-error sensitivity
 
-This study groups the existing coefficient grid by signed error, defined as assumed coefficient minus synthetic true coefficient. Signed errors are -12, -8, -4, 0, +4, +8, and +12, allowing underestimation and overestimation to be compared separately rather than collapsing every non-match into one group. It evaluates severity 0 as a negative control and injected steps of 0.5 and 1.0 across seeds 101–110, thresholds 1.5/2/3, compensation off/on, and persistence windows 1/2/3/5. The existing synthetic generator, processing implementation, and detector defaults are unchanged.
+This study groups compensation-on runs by signed error, defined as assumed coefficient minus synthetic true coefficient. Signed errors are -12, -8, -4, 0, +4, +8, and +12, allowing underestimation and overestimation to be compared separately rather than collapsing every non-match into one group. It evaluates severity 0 as a negative control and injected steps of 0.5 and 1.0 across seeds 101–110, thresholds 1.5/2/3, and persistence windows 1/2/3/5. For the uncompensated reference, assumed coefficient is fixed at 0 and results are pooled across the true-coefficient grid; this avoids repeatedly counting identical uncompensated results under different arbitrary coefficient-error labels. The existing synthetic generator, processing implementation, and detector defaults are unchanged.
 
 Run locally:
 
@@ -447,9 +447,9 @@ Run locally:
 npm run coefficient-error:exp07
 ```
 
-The command writes `reports/exp07/coefficient-error-sensitivity.csv` and emits seed-level and across-seed JSON summaries between explicit markers in CI logs. Outcomes include pre-onset false-alarm episodes per configuration, persistence case-detection rate, detected-case-only delay, and missed cases. At severity zero, a qualifying post-onset alert is a negative-control false alert, not a successful anomaly detection. The signed coefficient error is in the generator's coefficient units; it is not a percentage calibration error.
+The command writes `reports/exp07/coefficient-error-sensitivity.csv` and emits seed-level and across-seed JSON summaries between explicit markers in CI logs. Outcomes include pre-onset false-alarm episodes per configuration, persistence case-detection rate, detected-case-only delay, and missed cases. At severity zero, a qualifying post-onset alert is a negative-control false alert, not a successful anomaly detection. The signed coefficient error is in the generator's coefficient units; it is not a percentage calibration error. The uncompensated baseline is an overall reference, not a one-to-one matched comparison for each signed-error subgroup.
 
-Each seed-level group combines configurations from the existing threshold/sensor/coefficient grid, which share synthetic model structure and should not be treated as independent physical trials. Across-seed standard deviations and ranges are descriptive rather than confidence intervals. Results can reveal directional asymmetry between under- and over-compensation, but cannot establish field performance or justify changing defaults without additional validation. Measured findings will be added after the CI experiment completes.
+Each seed-level group combines configurations from the existing threshold/sensor/coefficient grid, which share synthetic model structure and should not be treated as independent physical trials. Across-seed standard deviations and ranges are descriptive rather than confidence intervals. Results can reveal directional asymmetry between under- and over-compensation, but cannot establish field performance or justify changing defaults without additional validation. Measured findings will be added after the corrected CI experiment completes.
 
 ## 14. Temperature-coefficient calibration-error sensitivity
 
