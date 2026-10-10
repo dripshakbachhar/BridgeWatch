@@ -328,3 +328,24 @@ npm run robustness:exp07
 The command writes `reports/exp07/seed-robustness.csv`. It includes per-seed rows for normal operation, the injected-step scenario, and the negative control, each separated by matched/mismatched coefficients and compensation mode. It then appends across-seed summary rows reporting the mean, sample standard deviation, minimum, and maximum of each available metric. False-alarm denominators are full evaluation samples for normal and negative-control scenarios and pre-onset samples for non-zero injected steps. Case crossing and pointwise post-onset rates remain distinct. The negative-control crossing metric is the rate of configurations with a threshold crossing after the nominal midpoint, despite no injected step.
 
 The ten seed values are a prespecified deterministic extension for checking sensitivity to the random stream; they are not an independently sampled set of bridges. Summary statistics are descriptive across seed-level aggregates. **The sample standard deviation and range are not confidence intervals**, and the many coefficient/threshold/sensor configurations within a seed are not independent replicates. Results remain conditional on the synthetic generator and should be used to describe sensitivity, not field false-alarm probabilities or real-bridge detection performance.
+
+### 11.1 Observed results across seeds 101–110
+
+The explicit robustness run completed in CI. The following values are the actual across-seed means; sample standard deviations (SD) are in percentage points for rates. Each seed contributes one aggregate per scenario × coefficient-match group × compensation mode. The matched group contains 18 scored configurations per seed and the mismatched group contains 72; these remain correlated synthetic configurations.
+
+| Scenario and metric | Coefficients | Compensation off: mean (SD) | Compensation on: mean (SD) | Paired seed direction |
+|---|---|---:|---:|---|
+| Normal false-alarm rate | Matched | 14.76% (2.97) | 3.46% (2.12) | Lower with compensation in 10/10 seeds |
+| Normal false-alarm rate | Mismatched | 14.76% (2.97) | 12.09% (2.26) | Lower in 9/10; higher in 1/10 |
+| Injected-step post-onset pointwise threshold-exceedance rate | Matched | 98.69% (1.06) | 91.83% (2.72) | Lower with compensation in 10/10 seeds |
+| Injected-step post-onset pointwise threshold-exceedance rate | Mismatched | 98.69% (1.06) | 83.21% (2.78) | Lower with compensation in 10/10 seeds |
+| Zero-severity negative-control case crossing rate | Matched | 67.22% (10.62) | 30.00% (13.15) | Lower with compensation in 10/10 seeds |
+| Zero-severity negative-control case crossing rate | Mismatched | 67.22% (10.62) | 63.06% (7.12) | Lower in 7/10; unchanged in 1/10; higher in 2/10 |
+
+For matched normal cases, the mean false-alarm rate falls by about 76.6% relative to the uncompensated rate. Under coefficient mismatch, the mean falls by about 18.1%, but the paired seed comparison is not universal: seed 103 has a higher normal false-alarm rate with compensation. Thus the false-alarm benefit is robust across these ten seeds for matched coefficients, while the mismatched-coefficient benefit is smaller and not consistent for every seed.
+
+For injected steps, compensation lowers the post-onset pointwise threshold-exceedance rate in all ten seeds for both coefficient-match groups. This is a consistent sensitivity trade-off in the tested synthetic setup, not evidence that case-level detection always fails: all configurations in this particular severity-2.5 grid still have at least one post-onset crossing. Pointwise exceedance, case-level crossing, and detection delay must remain separate metrics.
+
+The zero-severity negative control shows that a crossing can occur without any injected step. With matched coefficients, compensation reduces the negative-control case crossing rate in all ten seeds, but its mean remains 30.00%—too high to treat the present threshold rule as field-ready. Under mismatch, the average reduction is small and two seeds show an increase. The negative-control result is an important limit on any claim of reliable anomaly identification.
+
+These findings support a qualified conclusion: **the observed matched-coefficient false-alarm reduction and the post-onset exceedance trade-off are stable across the ten tested seeds; performance under coefficient mismatch is less dependable, and the negative control still produces frequent false positives.** This is descriptive robustness to selected random seeds, not statistical confidence, independent replication, or real-bridge validation. The default detector behavior was not changed by this study.
