@@ -2,7 +2,7 @@ name: BridgeWatch CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'feat/exp07-normalization-sensitivity']
   push:
     branches: [main]
   workflow_dispatch:
