@@ -102,7 +102,7 @@ The anomaly-scenario false-alarm counts are reported as produced by the experime
 
 EXP-07 supports a controlled sweep over injected structural-step magnitudes using `runEnvironmentalAnomalySeveritySweep`. Each multiplier scales the generator's anomaly offset relative to the configured sensor's `baselineStd`; it is a synthetic scenario parameter, not a calibrated measure of real damage.
 
-The default sweep uses multipliers `[0, 0.5, 1, 1.5, 2.5]`. A multiplier of `0` is a negative control: the scenario is labelled as an anomaly case but has no injected structural offset. The original experiment behavior is preserved because the existing `runEnvironmentalCompensationExperiment` default remains `2.5`.
+The default sweep uses multipliers `[0, 0.5, 1, 1.5, 2.5]`. A multiplier of `0` is a negative control: the scenario is labelled as an anomaly case but has no injected structural offset. Because ordinary synthetic noise can still cross a threshold, any reported post-onset detection at zero severity must be interpreted as a false positive under the no-injected-anomaly control, not as evidence of damage detection. The original experiment behavior is preserved because the existing `runEnvironmentalCompensationExperiment` default remains `2.5`.
 
 Example:
 
