@@ -35,6 +35,12 @@ These are software-generated scenarios, not measurements collected from an opera
 
 Detection rate and anomaly-detected status are different metrics. A run can be marked as detecting an anomaly even when not every post-onset point exceeds the threshold.
 
+### 4.1 Normalization and comparison scope
+
+The two processing modes use different calibration scales. The uncompensated baseline standardizes measurements using the standard deviation of the raw calibration values, with a floor of 10% of the sensor's configured baseline standard deviation. The compensated mode standardizes compensation residuals using the standard deviation of calibration residuals calculated with the assumed temperature coefficient, with a small numerical floor of `1e-9`.
+
+Both scales are calculated from calibration data only; evaluation samples and injected anomaly samples are not used to estimate them. However, because the scales differ, the comparison is between two complete processing pipelines—not a controlled comparison in which compensation is the only changed variable. Differences in threshold crossings can reflect both the compensation operation and the normalization scale. The results should therefore be interpreted as evidence about these configured pipelines, not as an isolated causal estimate of temperature compensation's effect. A follow-up sensitivity analysis should compare alternative normalization choices while holding the evaluation cases fixed.
+
 ## 5. Results
 
 The following are aggregate results from the synthetic diagnostic run.
